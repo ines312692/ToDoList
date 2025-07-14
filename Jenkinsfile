@@ -60,14 +60,15 @@ pipeline {
 
       try {
 						sh '''
-          docker run --rm \
-            -v //./pipe/docker_engine://./pipe/docker_engine \
-            -v ${WORKSPACE}:/workspace \
-            -w /workspace \
-            docker/compose:latest \
-            -f docker-compose.yml \
-            -p ${COMPOSE_PROJECT} up -d --build
-        '''
+  docker run --rm \
+    -v //./pipe/docker_engine://./pipe/docker_engine \
+    -v ${WORKSPACE}:/workspace \
+    -w /workspace \
+    docker/compose:latest \
+    -f /workspace/docker-compose.yml \
+    -p ${COMPOSE_PROJECT} up -d --build
+'''
+
       } catch (err) {
 						echo "Erreur lors du démarrage des services : ${err}"
         currentBuild.result = 'FAILURE'
@@ -76,14 +77,15 @@ pipeline {
 
       try {
 						sh '''
-          docker run --rm \
-            -v //./pipe/docker_engine://./pipe/docker_engine \
-            -v ${WORKSPACE}:/workspace \
-            -w /workspace \
-            docker/compose:latest \
-            -f docker-compose.yml \
-            -p ${COMPOSE_PROJECT} ps
-        '''
+  docker run --rm \
+    -v //./pipe/docker_engine://./pipe/docker_engine \
+    -v ${WORKSPACE}:/workspace \
+    -w /workspace \
+    docker/compose:latest \
+    -f /workspace/docker-compose.yml \
+    -p ${COMPOSE_PROJECT} ps
+'''
+
       } catch (err) {
 						echo "Impossible d'afficher l'état des services ou vérifier la santé : ${err}"
       }
