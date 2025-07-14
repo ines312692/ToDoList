@@ -5,8 +5,9 @@ services:
     build: ./To_Do_List_Backend
     ports:
       - "3001:3000"
+#pour utilisation
     volumes:
-      - todo-data:/app/data
+      - todo-app_todo-data:/app/src/data
     environment:
       - NODE_ENV=production
     healthcheck:
@@ -22,8 +23,8 @@ services:
     depends_on:
       - backend
     environment:
-      - API_URL=http://backend:3000
-
+      - API_URL=http://backend:3001
+# pour orchestration
 volumes:
-  todo-data:
+  todo-app_todo-data:
     driver: local
