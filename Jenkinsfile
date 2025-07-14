@@ -37,9 +37,16 @@ pipeline {
    stage('Deploy') {
 			steps {
 				dir('To_Do_List') {
-					sh "docker compose -f docker-compose.yml -p ${COMPOSE_PROJECT} down || true"
-                    sh "docker compose -f To_Do_List/docker-compose.yml -p ${COMPOSE_PROJECT} up -d --build"
-    }
+					sh 'cp To_Do_List/docker-compose.yml .'
+sh '''
+  docker run --rm \
+    -v //./pipe/docker_engine://./pipe/docker_engine \
+    -v $(pwd):/workspace \
+    -w /workspace \
+    docker/compose:latest \
+    -f docker-compose.yml \
+    -p ${COMPOSE_PROJECT} up -d --build
+'''}
   }
   }
 }
