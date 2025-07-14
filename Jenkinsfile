@@ -33,7 +33,12 @@ pipeline {
 				echo 'Running tests...'
       }
     }
-
+    stage('Debug Workspace') {
+			steps {
+				sh 'pwd'
+    sh 'ls -alR'
+  }
+}
    stage('Deploy') {
 			steps {
 				dir('To_Do_List') {
