@@ -42,10 +42,14 @@ pipeline {
     }
 
     stage('Deploy') {
-			steps {
-
-				sh "docker compose -p ${COMPOSE_PROJECT} up -d"
-
+			agent {
+				docker {
+					image 'docker/compose:1.29.2'
+          args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+      }
+      steps {
+				sh "docker-compose -p ${COMPOSE_PROJECT} up -d"
         echo 'Déploiement terminé.'
       }
     }
