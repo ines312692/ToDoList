@@ -44,7 +44,7 @@ pipeline {
     stage('Deploy') {
 			steps {
 
-					sh "docker-compose -p ${COMPOSE_PROJECT} up -d"
+					sh "docker-compose up -d"
 
         echo 'Déploiement terminé.'
       }
