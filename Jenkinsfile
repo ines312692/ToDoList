@@ -2,7 +2,7 @@ pipeline {
 	agent any
 
   environment {
-		FRONTEND_IMAGE = "todo-frontend"
+	FRONTEND_IMAGE = "todo-frontend"
     BACKEND_IMAGE = "todo-backend"
     COMPOSE_PROJECT = "todo-app"
   }
@@ -12,7 +12,7 @@ pipeline {
 			parallel {
 				stage('Build Frontend') {
 					steps {
-						dir('frontend') {
+						dir('To_Do_List') {
 							sh "docker build -t ${FRONTEND_IMAGE}:latest ."
             }
           }
@@ -20,7 +20,7 @@ pipeline {
 
         stage('Build Backend') {
 					steps {
-						dir('backend') {
+						dir('To_Do_List_Backend') {
 							sh "docker build -t ${BACKEND_IMAGE}:latest ."
             }
           }
