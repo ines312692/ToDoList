@@ -48,7 +48,7 @@ pipeline {
 						sh '''
           docker run --rm \
             -v //./pipe/docker_engine://./pipe/docker_engine \
-            -v $(pwd):/workspace \
+            -v ${WORKSPACE}:/workspace \
             -w /workspace \
             docker/compose:latest \
             -f docker-compose.yml \
@@ -62,7 +62,7 @@ pipeline {
 						sh '''
           docker run --rm \
             -v //./pipe/docker_engine://./pipe/docker_engine \
-            -v $(pwd):/workspace \
+            -v ${WORKSPACE}:/workspace \
             -w /workspace \
             docker/compose:latest \
             -f docker-compose.yml \
@@ -78,7 +78,7 @@ pipeline {
 						sh '''
           docker run --rm \
             -v //./pipe/docker_engine://./pipe/docker_engine \
-            -v $(pwd):/workspace \
+            -v ${WORKSPACE}:/workspace \
             -w /workspace \
             docker/compose:latest \
             -f docker-compose.yml \
@@ -91,6 +91,7 @@ pipeline {
       echo 'Déploiement terminé.'
     }
   }
+
 }
 
 }
