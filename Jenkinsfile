@@ -14,7 +14,7 @@ pipeline {
 					steps {
 						dir('To_Do_List') {
 
-              sh "docker build --no-cache -t ${FRONTEND_IMAGE}:latest ."
+              sh "docker build  -t ${FRONTEND_IMAGE}:latest ."
             }
           }
         }
@@ -23,7 +23,7 @@ pipeline {
 					steps {
 						dir('To_Do_List_Backend') {
 
-              sh "docker build --no-cache -t ${BACKEND_IMAGE}:latest ."
+              sh "docker build  -t ${BACKEND_IMAGE}:latest ."
             }
           }
         }
