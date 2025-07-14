@@ -38,31 +38,52 @@ pipeline {
 			steps {
 				script {
 					echo 'Deploying with Docker Compose...'
-
-          try {
-						sh "docker-compose -p ${COMPOSE_PROJECT} down"
-          } catch (err) {
+                    try {
+						sh '''
+                            docker run --rm \
+                                -v //./pipe/docker_engine://./pipe/docker_engine \
+                                -v $(pwd):/workspace \
+                                -w /workspace \
+                                docker/compose:latest \
+                                -f /workspace/docker-compose.yml \
+                                -p ${COMPOSE_PROJECT} down
+                        '''
+                    } catch (err) {
 						echo "Erreur lors de l'arrêt des services : ${err}"
-          }
-
-          try {
-						sh "docker-compose -p ${COMPOSE_PROJECT} up -d"
-          } catch (err) {
+                    }
+                    try {
+						sh '''
+                            docker run --rm \
+                                -v //./pipe/docker_engine://./pipe/docker_engine \
+                                -v $(pwd):/workspace \
+                                -w /workspace \
+                                docker/compose:latest \
+                                -f /workspace/docker-compose.yml \
+                                -p ${COMPOSE_PROJECT} up -d --build
+                        '''
+                    } catch (err) {
 						echo "Erreur lors du démarrage des services : ${err}"
-            currentBuild.result = 'FAILURE'
-            error("Docker Compose 'up' a échoué.")
-          }
+                        currentBuild.result = 'FAILURE'
+                        error("Docker Compose 'up' a échoué.")
+                    }
+                    try {
+						sh '''
+                            docker run --rm \
+                                -v //./pipe/docker_engine://./pipe/docker_engine \
+                                -v $(pwd):/workspace \
+                                -w /workspace \
+                                docker/compose:latest \
+                                -f /workspace/docker-compose.yml \
+                                -p ${COMPOSE_PROJECT} ps
+                        '''
 
-          try {
-						sh "docker-compose -p ${COMPOSE_PROJECT} ps"
-          } catch (err) {
-						echo "Impossible d'afficher l'état des services : ${err}"
-          }
-
-          echo 'Déploiement terminé.'
+                    } catch (err) {
+						echo "Impossible d'afficher l'état des services ou vérifier la santé : ${err}"
+                    }
+                    echo 'Déploiement terminé.'
+                }
+            }
         }
-      }
-    }
   }
 
   post {
