@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./To_Do_List_Backend
+    ports:
+      - "3001:3000"
+    volumes:
+      - todo-data:/app/data
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./To_Do_List
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    environment:
+      - API_URL=http://backend:3000
+
+volumes:
+  todo-data:
+    driver: local

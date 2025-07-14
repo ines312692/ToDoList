@@ -1,0 +1,13 @@
+.simple-header {
+  display: flex;
+  align-items: center;
+  background-color: #9c73ca;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  width: 100%;
+}
+
+.simple-header img {
+  height: 40px;
+  width: auto;
+}

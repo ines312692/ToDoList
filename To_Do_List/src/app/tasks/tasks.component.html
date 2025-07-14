@@ -1,0 +1,33 @@
+@if(isAddingTask){
+  <app-new-task (cancel)="onCancelAddTask()" (add)="onAddTask($event)"/>
+}
+
+<section>
+  <header>
+    <h2>{{username}}'s Tasks</h2>
+    <menu>
+      <button (click)="onStartAddTask()">Add Task</button>
+    </menu>
+  </header>
+
+  @if (error) {
+    <div class="error-message">
+      <p>{{error}}</p>
+      <button (click)="loadUserTasks()">Retry</button>
+    </div>
+  }
+
+  @if (loading) {
+    <p class="loading">Loading tasks...</p>
+  } @else {
+    <ul>
+      @for (task of selectedUserTasks; track task.id) {
+        <li>
+          <app-task [task]="task" (complete)="onCompleteTask($event)"></app-task>
+        </li>
+      } @empty {
+        <li class="no-tasks">No tasks available for this user.</li>
+      }
+    </ul>
+  }
+</section>
