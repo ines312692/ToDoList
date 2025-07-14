@@ -2,7 +2,7 @@ pipeline {
 	agent any
 
   environment {
-		FRONTEND_IMAGE = "todo-frontend"
+	FRONTEND_IMAGE = "todo-frontend"
     BACKEND_IMAGE = "todo-backend"
     COMPOSE_PROJECT = "todo-app"
   }
