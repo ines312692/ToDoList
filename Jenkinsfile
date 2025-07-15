@@ -5,7 +5,7 @@ pipeline {
 		FRONTEND_IMAGE = "todo-frontend"
 		BACKEND_IMAGE = "todo-backend"
 		COMPOSE_PROJECT = "todo-app"
-		DOCKER_BUILDKIT = "1"
+
 	}
 
 	options {
