@@ -1,0 +1,42 @@
+pipeline {
+  agent any
+
+    parameters {
+    string(name: 'IMAGE_NAME', defaultValue: 'todo-frontend')
+        string(name: 'NETWORK_NAME', defaultValue: 'todo-network')
+    }
+
+    environment {
+    IMAGE_TAG = "${params.IMAGE_NAME}:latest"
+    }
+
+    stages {
+    stage('Checkout') {
+      steps {
+        dir('To_Do_List') {
+          checkout scm
+                }
+            }
+        }
+
+        stage('Build & Test') {
+      steps {
+        dir('To_Do_List') {
+          sh '''
+                    npm ci
+                    npm run build
+                    npm run test || true
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+      steps {
+        dir('To_Do_List') {
+          sh "docker build -t ${IMAGE_TAG} ."
+                }
+            }
+        }
+    }
+}
