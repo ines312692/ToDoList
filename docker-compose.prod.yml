@@ -4,14 +4,14 @@ services:
   frontend:
     image: todo-frontend:latest
     ports:
-      - "8080:80"
+      - "8081:80"
     networks:
       - todo-network
 
   backend:
     image: todo-backend:latest
     ports:
-      - "3000:3000"
+      - "3001:3000"
     networks:
       - todo-network
 

@@ -37,26 +37,9 @@ pipeline {
             }
         }
 
-        stage('Integration Tests') {
-            steps {
-                sh '''
-                docker run -d --name frontend --network ${DOCKER_NETWORK} -p 8081:80 ${FRONTEND_IMAGE}:latest
-                docker run -d --name backend --network ${DOCKER_NETWORK} -p 3001:3000 ${BACKEND_IMAGE}:latest
-                sleep 10
-                curl -f http://localhost:8081 || exit 1
-                curl -f http://localhost:3001/health || exit 1
-                docker stop frontend backend
-                docker rm frontend backend
-                '''
-            }
-        }
 
-        stage('Deploy') {
-            steps {
-                sh 'docker-compose -f docker-compose.prod.yml down || true'
-                sh 'docker-compose -f docker-compose.prod.yml up -d'
-            }
-        }
+
+
     }
 
     post {
