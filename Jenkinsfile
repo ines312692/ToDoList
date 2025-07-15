@@ -20,7 +20,7 @@ pipeline {
 				stage('Build Frontend') {
 					steps {
 						dir('To_Do_List') {
-							sh "docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t ${FRONTEND_IMAGE}:latest ."
+							sh "docker build  -t ${FRONTEND_IMAGE}:latest ."
 						}
 					}
 				}
@@ -28,7 +28,7 @@ pipeline {
 				stage('Build Backend') {
 					steps {
 						dir('To_Do_List_Backend') {
-							sh "docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t ${BACKEND_IMAGE}:latest ."
+							sh "docker build  -t ${BACKEND_IMAGE}:latest ."
 						}
 					}
 				}
