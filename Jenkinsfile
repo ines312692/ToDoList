@@ -5,6 +5,13 @@ pipeline {
 		FRONTEND_IMAGE = "todo-frontend"
 		BACKEND_IMAGE = "todo-backend"
 		COMPOSE_PROJECT = "todo-app"
+		DOCKER_BUILDKIT = "1"
+	}
+
+	options {
+		buildDiscarder(logRotator(numToKeepStr: '5'))
+		disableConcurrentBuilds()
+		timeout(time: 30, unit: 'MINUTES')
 	}
 
 	stages {
@@ -13,7 +20,7 @@ pipeline {
 				stage('Build Frontend') {
 					steps {
 						dir('To_Do_List') {
-							sh "docker build --no-cache -t ${FRONTEND_IMAGE}:latest ."
+							sh "docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t ${FRONTEND_IMAGE}:latest ."
 						}
 					}
 				}
@@ -21,7 +28,7 @@ pipeline {
 				stage('Build Backend') {
 					steps {
 						dir('To_Do_List_Backend') {
-							sh "docker build -t ${BACKEND_IMAGE}:latest ."
+							sh "docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t ${BACKEND_IMAGE}:latest ."
 						}
 					}
 				}
@@ -29,15 +36,28 @@ pipeline {
 		}
 
 		stage('Test') {
-			steps {
-				echo 'Running tests...'
-			}
-		}
+			parallel {
+				stage('Frontend Tests') {
+					when {
+						expression { false } // Disabled until actual tests are implemented
+					}
+					steps {
+						dir('To_Do_List') {
+							sh "echo 'Frontend tests would run here'"
+						}
+					}
+				}
 
-		stage('Debug Workspace') {
-			steps {
-				sh 'pwd'
-				sh 'ls -alR'
+				stage('Backend Tests') {
+					when {
+						expression { false } // Disabled until actual tests are implemented
+					}
+					steps {
+						dir('To_Do_List_Backend') {
+							sh "echo 'Backend tests would run here'"
+						}
+					}
+				}
 			}
 		}
 
@@ -46,6 +66,7 @@ pipeline {
 				docker {
 					image 'docker/compose:1.29.2'
 					args '-v /var/run/docker.sock:/var/run/docker.sock'
+					reuseNode true
 				}
 			}
 			steps {
@@ -58,6 +79,7 @@ pipeline {
 	post {
 		success {
 			echo 'Deployment succeeded!'
+			sh "docker image prune -f"
 		}
 		failure {
 			echo 'Deployment failed.'
@@ -65,6 +87,7 @@ pipeline {
 		}
 		always {
 			echo 'Pipeline execution completed.'
+			cleanWs()
 		}
 	}
 }

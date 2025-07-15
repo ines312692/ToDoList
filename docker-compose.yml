@@ -2,10 +2,9 @@ version: '3.8'
 
 services:
   backend:
-    build: ./To_Do_List_Backend
+    image: ${BACKEND_IMAGE:-todo-backend}:latest
     ports:
       - "3001:3000"
-#pour utilisation
     volumes:
       - todo-app_todo-data:/app/src/data
     environment:
@@ -15,16 +14,18 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    restart: unless-stopped
 
   frontend:
-    build: ./To_Do_List
+    image: ${FRONTEND_IMAGE:-todo-frontend}:latest
     ports:
       - "8081:80"
     depends_on:
       - backend
     environment:
       - API_URL=http://backend:3001
-# pour orchestration
+    restart: unless-stopped
+
 volumes:
   todo-app_todo-data:
     driver: local
