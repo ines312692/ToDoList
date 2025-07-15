@@ -4,80 +4,74 @@ pipeline {
 	environment {
 		FRONTEND_IMAGE = "todo-frontend"
 		BACKEND_IMAGE = "todo-backend"
-		COMPOSE_PROJECT = "todo-app"
 	}
 
 	stages {
-		stage('Build Angular App') {
-			agent {
-				docker {
-					image 'node:20-alpine'
-    }
-  }
+		stage('Build Frontend') {
 			steps {
 				dir('To_Do_List') {
-					sh 'npm install'
-      sh 'npm run build -- --configuration production'
-    }
-  }
-}
-		stage('Build Images') {
+					sh '''
+						echo " Building frontend image..."
+						docker build --no-cache -t ${FRONTEND_IMAGE}:latest .
+					'''
+				}
+			}
+		}
+
+		stage('Build Backend') {
+			steps {
+				dir('To_Do_List_Backend') {
+					sh '''
+						echo "Building backend image..."
+						docker build --no-cache -t ${BACKEND_IMAGE}:latest .
+					'''
+				}
+			}
+		}
+
+		stage('Run and Test Containers') {
 			parallel {
-				stage('Build Frontend') {
+				stage('Run Frontend Container') {
 					steps {
-						dir('To_Do_List') {
-							sh "docker build --no-cache -t ${FRONTEND_IMAGE}:latest ."
-						}
+						sh '''
+							echo "Running frontend container..."
+							docker run -d --name temp-frontend -p 8081:80 ${FRONTEND_IMAGE}:latest
+							sleep 5
+							docker logs temp-frontend
+							docker stop temp-frontend
+							docker rm temp-frontend
+						'''
 					}
 				}
 
-				stage('Build Backend') {
+				stage('Run Backend Container') {
 					steps {
-						dir('To_Do_List_Backend') {
-							sh "docker build --no-cache -t ${BACKEND_IMAGE}:latest ."
-						}
+						sh '''
+							echo "Running backend container..."
+							docker run -d --name temp-backend -p 3001:3000 ${BACKEND_IMAGE}:latest
+							sleep 5
+							docker logs temp-backend
+							docker stop temp-backend
+							docker rm temp-backend
+						'''
 					}
 				}
-			}
-		}
-
-		stage('Test') {
-			steps {
-				echo 'Running tests...'
-			}
-		}
-
-		stage('Debug Workspace') {
-			steps {
-				sh 'pwd'
-				sh 'ls -alR'
-			}
-		}
-
-		stage('Deploy') {
-			agent {
-				docker {
-					image 'docker/compose:1.29.2'
-					args '-v /var/run/docker.sock:/var/run/docker.sock'
-				}
-			}
-			steps {
-				sh "docker-compose -p ${COMPOSE_PROJECT} up -d"
-				echo 'Déploiement terminé.'
 			}
 		}
 	}
 
 	post {
+		always {
+			echo 'Nettoyage Docker...'
+			sh '''
+				docker system prune -af
+			'''
+		}
 		success {
-			echo 'Deployment succeeded!'
+			echo 'Pipeline terminé avec succès.'
 		}
 		failure {
-			echo 'Deployment failed.'
-			sh "docker-compose -p ${COMPOSE_PROJECT} logs"
-		}
-		always {
-			echo 'Pipeline execution completed.'
+			echo 'Pipeline échoué.'
 		}
 	}
 }
