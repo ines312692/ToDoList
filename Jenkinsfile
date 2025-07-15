@@ -1,22 +1,21 @@
 pipeline {
-    agent any
+    agent { label 'master' } // Exécuter sur le nœud maître
 
     environment {
-        FRONTEND_IMAGE = "todo-frontend"
-        BACKEND_IMAGE = "todo-backend"
+        FRONTEND_IMAGE = "todo-frontend:latest"
+        BACKEND_IMAGE = "todo-backend:latest"
         DOCKER_NETWORK = "todo-network"
+        COMPOSE_FILE = "docker-compose.yml"
     }
 
     stages {
         stage('Initialize') {
             steps {
-                script {
-                    sh "docker network create ${DOCKER_NETWORK} || true"
-                }
+                sh "docker network create ${DOCKER_NETWORK} || true"
             }
         }
 
-        stage('Build Services in Parallel') {
+        stage('Trigger Builds') {
             parallel {
                 stage('Frontend Build') {
                     steps {
@@ -37,22 +36,30 @@ pipeline {
             }
         }
 
-
-
-
+        stage('Deploy') {
+            steps {
+                sh """
+                    docker-compose -f ${COMPOSE_FILE} down || true
+                    docker-compose -f ${COMPOSE_FILE} up -d
+                """
+            }
+        }
     }
 
-    post {
-        always {
-            sh '''
-            docker system prune -af
-            '''
-        }
+
+
+ post {
         success {
-            echo "Pipeline terminé avec succès !"
+            echo "Pipeline maître terminé avec succès !"
         }
         failure {
-            echo "Pipeline échoué."
+            echo "Pipeline maître échoué."
+        }
+        always {
+            sh """
+                docker-compose -f ${COMPOSE_FILE} down || true
+                docker rmi ${FRONTEND_IMAGE} ${BACKEND_IMAGE} || true
+            """
         }
     }
 }
