@@ -8,19 +8,6 @@ pipeline {
 	}
 
 	stages {
-		stage('Build Angular App') {
-			agent {
-				docker {
-					image 'node:20-alpine'
-    }
-  }
-			steps {
-				dir('To_Do_List') {
-					sh 'npm install'
-      sh 'npm run build -- --configuration production'
-    }
-  }
-}
 		stage('Build Images') {
 			parallel {
 				stage('Build Frontend') {
@@ -34,7 +21,7 @@ pipeline {
 				stage('Build Backend') {
 					steps {
 						dir('To_Do_List_Backend') {
-							sh "docker build --no-cache -t ${BACKEND_IMAGE}:latest ."
+							sh "docker build -t ${BACKEND_IMAGE}:latest ."
 						}
 					}
 				}
