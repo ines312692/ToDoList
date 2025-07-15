@@ -1,41 +1,45 @@
 pipeline {
-	agent any
+	agent {
+		docker {
+			image 'node:20-alpine'
+    }
+  }
 
-    parameters {
+  parameters {
 		string(name: 'IMAGE_NAME', defaultValue: 'todo-backend')
-        string(name: 'NETWORK_NAME', defaultValue: 'todo-network')
-    }
+    string(name: 'NETWORK_NAME', defaultValue: 'todo-network')
+  }
 
-    environment {
+  environment {
 		IMAGE_TAG = "${params.IMAGE_NAME}:latest"
-    }
+  }
 
-    stages {
+  stages {
 		stage('Checkout') {
 			steps {
 				dir('To_Do_List_Backend') {
 					checkout scm
-                }
-            }
         }
+      }
+    }
 
-        stage('Build & Test') {
+    stage('Build & Test') {
 			steps {
 				dir('To_Do_List_Backend') {
 					sh '''
-                    npm ci --only=production
-                    npm test || true
-                    '''
-                }
-            }
+            npm ci --only=production
+            npm test || true
+          '''
         }
+      }
+    }
 
-        stage('Build Docker Image') {
+    stage('Build Docker Image') {
 			steps {
 				dir('To_Do_List_Backend') {
 					sh "docker build -t ${IMAGE_TAG} ."
-                }
-            }
         }
+      }
     }
+  }
 }

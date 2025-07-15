@@ -1,5 +1,9 @@
 pipeline {
-  agent any
+  agent {
+    docker {
+      image 'node:20-alpine'
+    }
+  }
 
     parameters {
     string(name: 'IMAGE_NAME', defaultValue: 'todo-frontend')

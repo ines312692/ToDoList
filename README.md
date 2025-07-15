@@ -43,14 +43,16 @@ ToDo List/
 │   │   │   └── service/        # API services
 │   ├── Dockerfile              # Frontend Docker configuration
 │   └── nginx.conf              # Nginx configuration
+    |-Jenkinsfile              # Jenkins pipeline configuration
 │
 ├── To_Do_List_Backend/         # Backend Express application
 │   ├── src/                    # Source code
 │   │   ├── app.js              # Main application file
 │   │   └── data/               # Data storage directory
 │   └── Dockerfile              # Backend Docker configuration
+    |-Jenkinsfile              # Jenkins pipeline configuration
 │
-├── docker-compose.yml          # Docker Compose configuration
+├── docker-compose.prod.yml    # Docker Compose production configuration
 ├── Jenkinsfile                 # Jenkins CI/CD pipeline
 └── README.md                   # Project documentation
 ```
@@ -64,11 +66,11 @@ ToDo List/
 ### Using Docker Compose (Recommended)
 1. Clone the repository
 2. Navigate to the project root directory
-3. Run the application using Docker Compose:
+3. Run the application using Docker Compose with the production configuration:
    ```
-   docker-compose up -d
+   docker-compose -f docker-compose.prod.yml up -d
    ```
-4. Access the application at http://localhost:8081
+4. Access the application at http://localhost:8080
 
 ### Local Development Setup
 
@@ -122,10 +124,22 @@ The application can be deployed using the included Jenkins pipeline:
 1. Configure Jenkins with appropriate Docker permissions
 2. Create a new pipeline job pointing to the repository
 3. The pipeline will:
-    - Build Docker images for frontend and backend
-    - Run tests
-    - Deploy the application using Docker Compose
+    - Create the required Docker network if it doesn't exist
+    - Build Docker images for frontend and backend in parallel using separate build jobs
+    - Run integration tests to verify both services are working correctly
+    - Deploy the application using Docker Compose with the production configuration
+    - Clean up unused Docker resources
 
 ## Data Persistence
 
 Task and user data is stored in a JSON file within a Docker volume, ensuring data persistence across container restarts.
+
+## Network Configuration
+
+The application uses a Docker network called `todo-network` to enable communication between the frontend and backend containers. This network is created automatically by the Jenkins pipeline or can be created manually with:
+
+```
+docker network create todo-network
+```
+
+The network is configured as external in the docker-compose.prod.yml file, meaning it must exist before running the Docker Compose command.
