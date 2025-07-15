@@ -8,6 +8,19 @@ pipeline {
 	}
 
 	stages {
+		stage('Build Angular App') {
+			agent {
+				docker {
+					image 'node:20-alpine'
+    }
+  }
+  steps {
+				dir('To_Do_List') {
+					sh 'npm install'
+      sh 'npm run build -- --configuration production'
+    }
+  }
+}
 		stage('Build Images') {
 			parallel {
 				stage('Build Frontend') {
