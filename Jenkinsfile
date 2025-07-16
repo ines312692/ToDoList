@@ -1,83 +1,96 @@
+def branchName = env.BRANCH_NAME
+
 pipeline {
 	agent any
 
-	environment {
+    environment {
 		FRONTEND_IMAGE = "todo-frontend"
-		BACKEND_IMAGE = "todo-backend"
-		COMPOSE_PROJECT = "todo-app"
-	}
-
-	stages {
-		stage('Build Angular App') {
-			agent {
-				docker {
-					image 'node:20-alpine'
+        BACKEND_IMAGE = "todo-backend"
+        COMPOSE_PROJECT = "todo-app"
     }
-  }
-			steps {
-				dir('To_Do_List') {
+
+    stages {
+		stage('Install Dependencies') {
+			when {
+				anyOf {
+					branch 'develop'
+                    branch 'main'
+
+                }
+            }
+            steps {
+				echo "Installing dependencies for ${branchName}..."
+                dir('To_Do_List') {
 					sh 'npm install'
-      sh 'npm run build -- --configuration production'
-    }
-  }
-}
-		stage('Build Images') {
-			parallel {
-				stage('Build Frontend') {
-					steps {
-						dir('To_Do_List') {
-							sh "docker build --no-cache -t ${FRONTEND_IMAGE}:latest ."
-						}
-					}
-				}
+                }
+                dir('To_Do_List_Backend') {
+					sh 'npm install'
+                }
+            }
+        }
 
-				stage('Build Backend') {
-					steps {
-						dir('To_Do_List_Backend') {
-							sh "docker build --no-cache -t ${BACKEND_IMAGE}:latest ."
-						}
-					}
-				}
-			}
-		}
+        stage('Build Frontend') {
+			when {
+				anyOf {
+					branch 'develop'
+                    branch 'main'
+                }
+            }
+            steps {
+				dir('To_Do_List') {
+					sh 'npm run build -- --configuration production'
+                    sh "docker build -t ${FRONTEND_IMAGE}:${branchName} ."
+                }
+            }
+        }
 
-		stage('Test') {
-			steps {
-				echo 'Running tests...'
-			}
-		}
+        stage('Build Backend') {
+			when {
+				anyOf {
+					branch 'develop'
+                    branch 'main'
+                }
+            }
+            steps {
+				dir('To_Do_List_Backend') {
+					sh "docker build -t ${BACKEND_IMAGE}:${branchName} ."
+                }
+            }
+        }
 
-		stage('Debug Workspace') {
-			steps {
-				sh 'pwd'
-				sh 'ls -alR'
-			}
-		}
+        stage('Tests') {
+			when {
+				branch 'develop'
+            }
+            steps {
+				echo "Running tests on ${branchName}..."
+                // Add test scripts here
+            }
+        }
 
-		stage('Deploy') {
-			agent {
+        stage('Deploy') {
+			when {
+				branch 'main'
+            }
+            agent {
 				docker {
 					image 'docker/compose:1.29.2'
-					args '-v /var/run/docker.sock:/var/run/docker.sock'
-				}
-			}
-			steps {
-				sh "docker-compose -p ${COMPOSE_PROJECT} up -d"
-				echo 'Déploiement terminé.'
-			}
-		}
-	}
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+				echo "Deploying to production..."
+                sh "docker-compose -p ${COMPOSE_PROJECT} up -d"
+            }
+        }
+    }
 
-	post {
+    post {
 		success {
-			echo 'Deployment succeeded!'
-		}
-		failure {
-			echo 'Deployment failed.'
-			sh "docker-compose -p ${COMPOSE_PROJECT} logs"
-		}
-		always {
-			echo 'Pipeline execution completed.'
-		}
-	}
+			echo "Pipeline succeeded on branch ${branchName}"
+        }
+        failure {
+			echo "Pipeline failed on branch ${branchName}"
+        }
+    }
 }
