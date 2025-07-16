@@ -55,7 +55,7 @@ pipeline {
             }
             steps {
 				dir('To_Do_List') {
-					sh 'npm run build -- --configuration production'
+
                     sh "docker build -t ${FRONTEND_IMAGE}:${branchName} ."
                 }
             }
