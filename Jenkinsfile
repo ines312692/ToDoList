@@ -1,5 +1,3 @@
-def branchName = env.BRANCH_NAME
-
 pipeline {
 	agent any
 
@@ -14,12 +12,13 @@ pipeline {
 			agent {
 				docker {
 					image 'node:20-alpine'
-    }}
-			when {
+                    args '-u root'
+                }
+            }
+            when {
 				anyOf {
 					branch 'develop'
                     branch 'main'
-
                 }
             }
             steps {
@@ -34,7 +33,13 @@ pipeline {
         }
 
         stage('Build Frontend') {
-			when {
+			agent {
+				docker {
+					image 'node:20-alpine'
+                    args '-u root'
+                }
+            }
+            when {
 				anyOf {
 					branch 'develop'
                     branch 'main'
@@ -68,7 +73,7 @@ pipeline {
             }
             steps {
 				echo "Running tests on ${branchName}..."
-                // Add test scripts here
+                // Ajoute tes commandes de tests ici
             }
         }
 
