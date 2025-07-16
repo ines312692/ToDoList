@@ -1,5 +1,5 @@
 pipeline {
-    agent any // Exécuter sur le nœud maître
+    agent { label 'master' } // Exécuter sur le nœud maître
 
     environment {
         FRONTEND_IMAGE = "todo-frontend:latest"
