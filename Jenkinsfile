@@ -1,3 +1,5 @@
+def branchName = env.BRANCH_NAME
+
 pipeline {
 	agent any
 
@@ -8,7 +10,13 @@ pipeline {
     }
 
     stages {
-		stage('Install Dependencies') {
+		stage('Checkout') {
+			steps {
+				checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
 			agent {
 				docker {
 					image 'node:20-alpine'
@@ -54,7 +62,13 @@ pipeline {
         }
 
         stage('Build Backend') {
-			when {
+			agent {
+				docker {
+					image 'docker:20-dind'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            when {
 				anyOf {
 					branch 'develop'
                     branch 'main'
