@@ -9,19 +9,25 @@ pipeline {
     stages {
 		stage('Checkout') {
 			steps {
-				checkout scm
+
+					checkout scm
+
             }
         }
 
         stage('Build & Test') {
 			steps {
-				// ici tu peux lancer tests si tu veux, dans le dossier To_Do_List_Backend
+				dir('To_Do_List_Backend') {
+
+                }
             }
         }
 
         stage('Build Docker Image') {
 			steps {
+
 				sh "docker build -t ${params.IMAGE_NAME} To_Do_List_Backend"
+
             }
         }
     }
