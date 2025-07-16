@@ -2,53 +2,36 @@ pipeline {
 	agent any
 
     environment {
-		FRONTEND_IMAGE = 'todo-frontend:latest'
+		KUBECONFIG_FILE = 'minikube-kubeconfig'  // l’ID que tu as mis dans Jenkins Credentials
+        FRONTEND_IMAGE = 'todo-frontend:latest'
         BACKEND_IMAGE = 'todo-backend:latest'
     }
 
     stages {
-		stage('Configure Docker with Minikube') {
-			steps {
-				echo 'Switching Docker context to Minikube...'
-                sh 'eval $(minikube -p minikube docker-env)'
-            }
-        }
-
-        stage('Build Frontend Image') {
+		stage('Build Frontend') {
 			steps {
 				dir('To_Do_List') {
-					sh "docker build -t ${env.FRONTEND_IMAGE} ."
+					sh 'docker build -t $FRONTEND_IMAGE .'
                 }
             }
         }
 
-        stage('Build Backend Image') {
+        stage('Build Backend') {
 			steps {
 				dir('To_Do_List_Backend') {
-					sh "docker build -t ${env.BACKEND_IMAGE} ."
+					sh 'docker build -t $BACKEND_IMAGE .'
                 }
             }
         }
 
         stage('Deploy to Minikube') {
 			steps {
-				echo 'Deploying to Kubernetes cluster...'
-                sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-                sh 'kubectl apply -f k8s/backend-deployment.yaml'
-            }
-        }
-
-        stage('Verify Deployment') {
-			steps {
-				sh 'kubectl get pods'
-                sh 'kubectl get services'
-            }
-        }
-
-        stage('Expose Frontend') {
-			steps {
-				echo 'Accessing Frontend URL'
-                sh 'minikube service todo-frontend-service --url'
+				withKubeConfig([credentialsId: env.KUBECONFIG_FILE]) {
+					sh 'kubectl apply -f k8s/frontend-deployment.yaml'
+                    sh 'kubectl apply -f k8s/backend-deployment.yaml'
+                    sh 'kubectl get pods'
+                    sh 'kubectl get services'
+                }
             }
         }
     }
