@@ -11,6 +11,10 @@ pipeline {
 
     stages {
 		stage('Install Dependencies') {
+			agent {
+				docker {
+					image 'node:20-alpine'
+    }}
 			when {
 				anyOf {
 					branch 'develop'
