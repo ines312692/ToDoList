@@ -9,11 +9,11 @@ pipeline {
     stages {
     stage('Checkout') {
       steps {
-        dir('To_Do_List') {
+
           checkout scm
                 }
             }
-        }
+
 
         stage('Build & Test') {
       steps {
@@ -25,9 +25,9 @@ pipeline {
 
         stage('Build Docker Image') {
       steps {
-        dir('To_Do_List') {
-          sh "docker build -t ${params.IMAGE_NAME} ."
-                }
+
+          sh "docker build -t ${params.IMAGE_NAME} To_Do_List"
+
             }
         }
     }
