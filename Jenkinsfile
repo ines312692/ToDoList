@@ -7,14 +7,7 @@ pipeline {
     }
 
     stages {
-		stage('Start Minikube') {
-			steps {
-				echo 'Starting Minikube...'
-                sh 'minikube status || minikube start'
-            }
-        }
-
-        stage('Configure Docker with Minikube') {
+		stage('Configure Docker with Minikube') {
 			steps {
 				echo 'Switching Docker context to Minikube...'
                 sh 'eval $(minikube -p minikube docker-env)'
@@ -52,7 +45,7 @@ pipeline {
             }
         }
 
-        stage('Expose Frontend (optional)') {
+        stage('Expose Frontend') {
 			steps {
 				echo 'Accessing Frontend URL'
                 sh 'minikube service todo-frontend-service --url'
