@@ -5,6 +5,7 @@ pipeline {
 		KUBECONFIG = "${WORKSPACE}/kubeconfig"
         FRONTEND_IMAGE = 'todo-frontend'
         BACKEND_IMAGE = 'todo-backend'
+        KUBECTL_PATH = "${WORKSPACE}/bin"
     }
 
     stages {
@@ -47,27 +48,34 @@ pipeline {
         stage('Copy Kubeconfig') {
 			steps {
 				withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG_FILE')]) {
-					sh 'cp $KUBECONFIG_FILE $KUBECONFIG'
+					sh '''
+                        echo "Copying kubeconfig from: $KUBECONFIG_FILE"
+                        echo "Copying kubeconfig to: $KUBECONFIG"
+                        cp $KUBECONFIG_FILE $KUBECONFIG
+                        echo "Kubeconfig copied successfully"
+                        echo "Contents of kubeconfig:"
+                        cat $KUBECONFIG
+                    '''
+                }
+            }
         }
-      }
-    }
 
-    stage('Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes') {
 			steps {
 				sh '''
-				echo "KUBECONFIG is set to: $KUBECONFIG"
-         cat $KUBECONFIG
-         export KUBECONFIG=$KUBECONFIG
+                    echo "KUBECONFIG is set to: $KUBECONFIG"
+                    cat $KUBECONFIG
+                    export KUBECONFIG=$KUBECONFIG
+                    export PATH=${WORKSPACE}/bin:$PATH
 
-          kubectl cluster-info
-          kubectl get nodes
-          sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-          sh 'kubectl apply -f k8s/backend-deployment.yaml'
-          kubectl get pods
-        '''
-      }
-    }
-
+                    kubectl cluster-info
+                    kubectl get nodes
+                    kubectl apply -f k8s/frontend-deployment.yaml
+                    kubectl apply -f k8s/backend-deployment.yaml
+                    kubectl get pods
+                '''
+            }
+        }
     }
 
     post {
@@ -75,9 +83,24 @@ pipeline {
 			sh 'docker image prune -f || true'
         }
         failure {
-			sh 'export KUBECONFIG=${WORKSPACE}/kubeconfig'
-			sh '${WORKSPACE}/bin/kubectl logs -l app=todo-backend --tail=50 || true'
-            sh '${WORKSPACE}/bin/kubectl logs -l app=todo-frontend --tail=50 || true'
+			script {
+				sh '''
+                    export KUBECONFIG=${WORKSPACE}/kubeconfig
+                    export PATH=${WORKSPACE}/bin:$PATH
+
+                    echo "Checking kubectl configuration..."
+                    kubectl config current-context || true
+
+                    echo "Getting pod logs for backend..."
+                    kubectl logs -l app=todo-backend --tail=50 || true
+
+                    echo "Getting pod logs for frontend..."
+                    kubectl logs -l app=todo-frontend --tail=50 || true
+
+                    echo "Checking pod status..."
+                    kubectl get pods -o wide || true
+                '''
+            }
         }
     }
 }
