@@ -71,28 +71,20 @@ pipeline {
 
     post {
 		always {
-			agent {
-				docker {
-					image 'docker:24.0.0'
-                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
-            steps {
-				sh 'docker image prune -f || true'
+			script {
+				docker.image('docker:24.0.0').inside('-u root -v /var/run/docker.sock:/var/run/docker.sock') {
+					sh 'docker image prune -f || true'
             }
         }
-
-        failure {
-			agent {
-				docker {
-					image 'bitnami/kubectl:latest'
-                    args "-v \$HOME/.kube:/root/.kube"
-                }
-            }
-            steps {
-				sh 'kubectl logs -l app=todo-backend --tail=50 || true'
+    }
+    failure {
+			script {
+				docker.image('bitnami/kubectl:latest').inside('-v $HOME/.kube:/root/.kube') {
+					sh 'kubectl logs -l app=todo-backend --tail=50 || true'
                 sh 'kubectl logs -l app=todo-frontend --tail=50 || true'
             }
         }
     }
+}
+
 }
