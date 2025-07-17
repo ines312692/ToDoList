@@ -20,6 +20,7 @@ pipeline {
 				docker {
 					image 'node:20-alpine'
                     args '-v /var/run/docker.sock:/var/run/docker.sock'
+                    args '-u root'
                 }
             }
             steps {
@@ -35,6 +36,7 @@ pipeline {
 				docker {
 					image 'docker:24.0.0'
                     args '-v /var/run/docker.sock:/var/run/docker.sock'
+                    args '-u root'
                 }
             }
             steps {
