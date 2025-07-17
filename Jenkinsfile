@@ -1,6 +1,12 @@
 pipeline {
 
-agent any
+	agent {
+		docker {
+			image 'node:20-alpine' // ou une image qui contient Docker et curl
+            args '--network host -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+
     environment {
 		KUBECONFIG = "${WORKSPACE}/kubeconfig"
         FRONTEND_IMAGE = 'todo-frontend'
