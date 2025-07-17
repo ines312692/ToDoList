@@ -1,9 +1,7 @@
 pipeline {
 	agent {
 		label 'docker-agent'
-    docker {
-			args '--network host'
-    }
+
 }
 
     environment {
