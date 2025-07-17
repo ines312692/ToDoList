@@ -68,8 +68,7 @@ pipeline {
                     export KUBECONFIG=$KUBECONFIG
                     export PATH=${WORKSPACE}/bin:$PATH
 
-                    kubectl cluster-info
-                    kubectl get nodes
+
                     kubectl apply -f k8s/frontend-deployment.yaml
                     kubectl apply -f k8s/backend-deployment.yaml
                     kubectl get pods
