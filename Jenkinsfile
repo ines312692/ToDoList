@@ -19,14 +19,13 @@ pipeline {
 			agent {
 				docker {
 					image 'node:20-alpine'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
                     args '-u root'
                 }
             }
             steps {
 				dir('To_Do_List') {
 					sh 'npm install'
-                    sh 'npm run build'
+
                 }
             }
         }
