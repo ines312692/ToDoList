@@ -33,13 +33,11 @@ pipeline {
             stage('Install Kubectl') {
 			steps {
 				sh '''
-  curl -LO https://dl.k8s.io/release/v1.33.1/bin/linux/amd64/kubectl
-  chmod +x kubectl
-  mkdir -p $HOME/bin
-  sudo mv kubectl $HOME/bin/kubectl
-  export PATH=$HOME/bin:$PATH
-  kubectl version --client
-'''
+                    curl -LO https://dl.k8s.io/release/v1.33.1/bin/linux/amd64/kubectl
+                    chmod +x kubectl
+                    sudo mv kubectl /usr/local/bin/kubectl
+                    kubectl version --client
+                '''
             }
         }
 
