@@ -15,7 +15,8 @@ pipeline {
     stages {
 		stage('Checkout') {
 			steps {
-				checkout scm
+				cleanWs()
+                checkout scm
             }
         }
 
@@ -40,13 +41,20 @@ pipeline {
         stage('Deploy to Minikube') {
 			steps {
 				withKubeConfig([credentialsId: env.KUBECONFIG_FILE]) {
-					sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl apply -f /app/k8s/backend-deployment.yaml'
-                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl apply -f /app/k8s/frontend-deployment.yaml'
-                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl wait --for=condition=ready pod -l app=todo-backend --timeout=300s'
-                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl wait --for=condition=ready pod -l app=todo-frontend --timeout=300s'
-                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl get pods'
-                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl get services'
-                    sh 'minikube service todo-frontend-service --url'
+					script {
+						try {
+							sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl apply -f /app/k8s/backend-deployment.yaml'
+                            sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl apply -f /app/k8s/frontend-deployment.yaml'
+                            sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl wait --for=condition=ready pod -l app=todo-backend --timeout=300s'
+                            sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl wait --for=condition=ready pod -l app=todo-frontend --timeout=300s'
+                            sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl get pods'
+                            sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl get services'
+                            sh 'minikube service todo-frontend-service --url || true'
+                        } catch (Exception e) {
+							echo "Error during deployment: ${e}"
+                            throw e
+                        }
+                    }
                 }
             }
         }
@@ -57,8 +65,8 @@ pipeline {
 			sh 'docker image prune -f || true'
         }
         failure {
-			sh 'docker run --rm -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl logs -l app=todo-backend --tail=50 || true'
-            sh 'docker run --rm -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl logs -l app=todo-frontend --tail=50 || true'
+			sh 'docker run --rm -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl logs -l app=todo-backend --tail=50 || true'
+            sh 'docker run --rm -v $HOME/.kube:/root/.kube bitnami/kubectl:1.33.1 kubectl logs -l app=todo-frontend --tail=50 || true'
         }
     }
 }
