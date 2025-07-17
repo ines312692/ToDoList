@@ -8,8 +8,8 @@ pipeline {
 
     environment {
 		KUBECONFIG_FILE = 'minikube-kubeconfig'
-        FRONTEND_IMAGE = 'todo-frontend:latest'
-        BACKEND_IMAGE = 'todo-backend:latest'
+        FRONTEND_IMAGE = 'todo-frontend'
+        BACKEND_IMAGE = 'todo-backend'
     }
 
     stages {
@@ -23,20 +23,19 @@ pipeline {
         stage('Build Frontend') {
 			steps {
 				dir('To_Do_List') {
-					sh 'docker run --rm -v $(pwd):/app -w /app node:20-alpine npm install'
-                    sh 'docker run --rm -v $(pwd):/app -w /app node:20-alpine npm run build'
-                }
-            }
+					sh "docker build  -t ${FRONTEND_IMAGE}:latest ."
+						}
+					}
         }
 
         stage('Build Backend') {
 			steps {
 				dir('To_Do_List_Backend') {
-					sh 'docker build -t $BACKEND_IMAGE .'
-                    sh 'minikube image load $BACKEND_IMAGE'
-                }
+					sh "docker build  -t ${BACKEND_IMAGE}:latest ."
+						}
+					}
             }
-        }
+
 
         stage('Deploy to Minikube') {
 			steps {
