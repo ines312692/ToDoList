@@ -7,6 +7,8 @@ pipeline {
         HTTP_PROXY  = 'http://host.docker.internal:8080'
         NO_PROXY    = '127.0.0.1,localhost,.svc,.cluster.local'
         KUBECONFIG = 'minikube-kubeconfig'
+        FRONTEND_IMAGE = 'todo-frontend'
+        BACKEND_IMAGE = 'todo-backend'
     }
 
     stages {
