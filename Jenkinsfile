@@ -55,6 +55,10 @@ pipeline {
     stage('Deploy to Kubernetes') {
 			steps {
 				sh '''
+				echo "KUBECONFIG is set to: $KUBECONFIG"
+         cat $KUBECONFIG
+         export KUBECONFIG=$KUBECONFIG
+
           kubectl cluster-info
           kubectl get nodes
           sh 'kubectl apply -f k8s/frontend-deployment.yaml'
@@ -71,6 +75,7 @@ pipeline {
 			sh 'docker image prune -f || true'
         }
         failure {
+			sh 'export KUBECONFIG=${WORKSPACE}/kubeconfig'
 			sh '${WORKSPACE}/bin/kubectl logs -l app=todo-backend --tail=50 || true'
             sh '${WORKSPACE}/bin/kubectl logs -l app=todo-frontend --tail=50 || true'
         }
