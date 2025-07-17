@@ -1,6 +1,6 @@
 pipeline {
 
-
+agent any
     environment {
 		KUBECONFIG = "${WORKSPACE}/kubeconfig"
         FRONTEND_IMAGE = 'todo-frontend'
