@@ -1,5 +1,10 @@
 pipeline {
-	agent any
+	agent {
+		docker {
+			image 'docker:24.0.0'
+            args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
 		KUBECONFIG_FILE = 'minikube-kubeconfig'
@@ -15,55 +20,33 @@ pipeline {
         }
 
         stage('Build Frontend') {
-			agent {
-				docker {
-					image 'node:20-alpine'
-                    args '-u root'
-                }
-            }
-            steps {
+			steps {
 				dir('To_Do_List') {
-					sh 'npm install'
-                    sh 'npm run build'
+					sh 'docker run --rm -v $(pwd):/app -w /app node:20-alpine npm install'
+                    sh 'docker run --rm -v $(pwd):/app -w /app node:20-alpine npm run build'
                 }
             }
         }
 
         stage('Build Backend') {
-			agent {
-				docker {
-					image 'docker:24.0.0'
-                    args '-u root'
-                }
-            }
-            steps {
+			steps {
 				dir('To_Do_List_Backend') {
-					script {
-						sh 'docker build -t $BACKEND_IMAGE .'
-                        sh 'minikube image load $BACKEND_IMAGE'
-                    }
+					sh 'docker build -t $BACKEND_IMAGE .'
+                    sh 'minikube image load $BACKEND_IMAGE'
                 }
             }
         }
 
         stage('Deploy to Minikube') {
-			agent {
-				docker {
-					image 'bitnami/kubectl:latest'
-                    args "-v \$HOME/.kube:/root/.kube"
-                }
-            }
-            steps {
+			steps {
 				withKubeConfig([credentialsId: env.KUBECONFIG_FILE]) {
-					script {
-						sh 'kubectl apply -f k8s/backend-deployment.yaml'
-                        sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-                        sh 'kubectl wait --for=condition=ready pod -l app=todo-backend --timeout=300s'
-                        sh 'kubectl wait --for=condition=ready pod -l app=todo-frontend --timeout=300s'
-                        sh 'kubectl get pods'
-                        sh 'kubectl get services'
-                        sh 'minikube service todo-frontend-service --url'
-                    }
+					sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl apply -f /app/k8s/backend-deployment.yaml'
+                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl apply -f /app/k8s/frontend-deployment.yaml'
+                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl wait --for=condition=ready pod -l app=todo-backend --timeout=300s'
+                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl wait --for=condition=ready pod -l app=todo-frontend --timeout=300s'
+                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl get pods'
+                    sh 'docker run --rm -v $(pwd):/app -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl get services'
+                    sh 'minikube service todo-frontend-service --url'
                 }
             }
         }
@@ -71,20 +54,11 @@ pipeline {
 
     post {
 		always {
-			script {
-				docker.image('docker:24.0.0').inside('-u root -v /var/run/docker.sock:/var/run/docker.sock') {
-					sh 'docker image prune -f || true'
-            }
+			sh 'docker image prune -f || true'
+        }
+        failure {
+			sh 'docker run --rm -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl logs -l app=todo-backend --tail=50 || true'
+            sh 'docker run --rm -v $HOME/.kube:/root/.kube bitnami/kubectl:latest kubectl logs -l app=todo-frontend --tail=50 || true'
         }
     }
-    failure {
-			script {
-				docker.image('bitnami/kubectl:latest').inside('-v $HOME/.kube:/root/.kube') {
-					sh 'kubectl logs -l app=todo-backend --tail=50 || true'
-                sh 'kubectl logs -l app=todo-frontend --tail=50 || true'
-            }
-        }
-    }
-}
-
 }
