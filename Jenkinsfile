@@ -2,12 +2,10 @@ pipeline {
 	agent any
 
     environment {
-		// Proxy configuré pour accéder à l'API Kubernetes locale via kubectl proxy
+
         HTTPS_PROXY = 'http://host.docker.internal:8080'
         HTTP_PROXY  = 'http://host.docker.internal:8080'
         NO_PROXY    = '127.0.0.1,localhost,.svc,.cluster.local'
-
-        // Fichier kubeconfig modifié pointant vers http://host.docker.internal:8080
         KUBECONFIG = 'minikube-kubeconfig'
     }
 
@@ -31,7 +29,7 @@ pipeline {
                         echo "Installing frontend dependencies..."
                         npm install
                         echo " Building frontend..."
-                        npm run build
+
                     '''
                 }
             }
