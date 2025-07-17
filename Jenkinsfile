@@ -52,14 +52,7 @@ pipeline {
         }
 
 
-        stage('Debug Pause') {
-			steps {
-				sh '''
-            echo "Pausing for debugging..."
-            sleep 60
-        '''
-    }
-}
+
 
         stage('Deploy to Kubernetes') {
 			steps {
