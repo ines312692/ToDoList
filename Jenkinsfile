@@ -35,6 +35,22 @@ pipeline {
                 }
             }
         }
+         stage('Install Kubectl') {
+			steps {
+				sh '''
+                    echo "Installing kubectl..."
+                    curl -LO https://dl.k8s.io/release/v1.33.1/bin/linux/amd64/kubectl
+                    chmod +x kubectl
+                    mkdir -p ${WORKSPACE}/bin
+                    mv kubectl ${WORKSPACE}/bin/kubectl
+
+                    echo "Verifying kubectl installation..."
+                    ${WORKSPACE}/bin/kubectl version --client
+                '''
+            }
+        }
+
+
 
         stage('Deploy to K8s') {
 			steps {
