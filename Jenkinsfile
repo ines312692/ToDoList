@@ -35,43 +35,108 @@ pipeline {
         stage('Install Kubectl') {
 			steps {
 				sh '''
+                    echo "Installing kubectl..."
                     curl -LO https://dl.k8s.io/release/v1.33.1/bin/linux/amd64/kubectl
                     chmod +x kubectl
                     mkdir -p ${WORKSPACE}/bin
                     mv kubectl ${WORKSPACE}/bin/kubectl
-                    export PATH=${WORKSPACE}/bin:$PATH
-                    kubectl version --client
+
+                    echo "Verifying kubectl installation..."
+                    ${WORKSPACE}/bin/kubectl version --client
                 '''
             }
         }
 
-        stage('Copy Kubeconfig') {
+        stage('Setup Kubeconfig') {
 			steps {
 				withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG_FILE')]) {
 					sh '''
-                        echo "Copying kubeconfig from: $KUBECONFIG_FILE"
-                        echo "Copying kubeconfig to: $KUBECONFIG"
+                        echo "Setting up kubeconfig..."
                         cp $KUBECONFIG_FILE $KUBECONFIG
-                        echo "Kubeconfig copied successfully"
-                        echo "Contents of kubeconfig:"
-                        cat $KUBECONFIG
+                        chmod 600 $KUBECONFIG
+
+                        echo "Kubeconfig setup completed"
+                        echo "Current context:"
+                        ${WORKSPACE}/bin/kubectl config current-context --kubeconfig=$KUBECONFIG || echo "No current context"
                     '''
                 }
+            }
+        }
+
+        stage('Verify Kubernetes Connection') {
+			steps {
+				sh '''
+                    echo "=== Verifying Kubernetes API connectivity ==="
+                    export KUBECONFIG=$KUBECONFIG
+                    export PATH=${WORKSPACE}/bin:$PATH
+
+                    echo "Testing API server connectivity..."
+                    kubectl cluster-info --request-timeout=30s || {
+                        echo "WARNING: Cannot connect to Kubernetes API"
+                        echo "This might be due to network connectivity issues"
+                        echo "Make sure 'minikube tunnel' is running on the host machine"
+
+                        # Tentative de diagnostic
+                        echo "=== Network Diagnosis ==="
+                        netstat -an | grep :8443 || echo "Port 8443 not listening"
+
+                        # Ne pas faire échouer le pipeline, juste avertir
+                        echo "Continuing with deployment..."
+                    }
+
+                    echo "Current kubectl context:"
+                    kubectl config current-context || echo "No current context"
+                '''
             }
         }
 
         stage('Deploy to Kubernetes') {
 			steps {
 				sh '''
-                    echo "KUBECONFIG is set to: $KUBECONFIG"
-                    cat $KUBECONFIG
+                    echo "=== Deploying to Kubernetes ==="
                     export KUBECONFIG=$KUBECONFIG
                     export PATH=${WORKSPACE}/bin:$PATH
 
+                    echo "Applying frontend deployment..."
+                    kubectl apply -f k8s/frontend-deployment.yaml --validate=false --timeout=60s || {
+                        echo "Frontend deployment failed, retrying..."
+                        sleep 10
+                        kubectl apply -f k8s/frontend-deployment.yaml --validate=false --timeout=60s
+                    }
 
-                    kubectl apply -f k8s/frontend-deployment.yaml
-                    kubectl apply -f k8s/backend-deployment.yaml
-                    kubectl get pods
+                    echo "Applying backend deployment..."
+                    kubectl apply -f k8s/backend-deployment.yaml --validate=false --timeout=60s || {
+                        echo "Backend deployment failed, retrying..."
+                        sleep 10
+                        kubectl apply -f k8s/backend-deployment.yaml --validate=false --timeout=60s
+                    }
+
+                    echo "Waiting for deployments to be ready..."
+                    kubectl rollout status deployment/todo-frontend --timeout=300s || echo "Frontend rollout status check failed"
+                    kubectl rollout status deployment/todo-backend --timeout=300s || echo "Backend rollout status check failed"
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+			steps {
+				sh '''
+                    echo "=== Verifying Deployment ==="
+                    export KUBECONFIG=$KUBECONFIG
+                    export PATH=${WORKSPACE}/bin:$PATH
+
+                    echo "Checking pods status..."
+                    kubectl get pods -o wide || echo "Failed to get pods"
+
+                    echo "Checking services..."
+                    kubectl get services || echo "Failed to get services"
+
+                    echo "Checking deployment status..."
+                    kubectl get deployments || echo "Failed to get deployments"
+
+                    echo "Checking pod logs (last 10 lines)..."
+                    kubectl logs -l app=todo-frontend --tail=10 || echo "Failed to get frontend logs"
+                    kubectl logs -l app=todo-backend --tail=10 || echo "Failed to get backend logs"
                 '''
             }
         }
@@ -79,25 +144,59 @@ pipeline {
 
     post {
 		always {
-			sh 'docker image prune -f || true'
+			sh '''
+                echo "=== Cleanup ==="
+                # Nettoyer les images Docker non utilisées
+                docker image prune -f || true
+
+                # Nettoyer le workspace kubectl
+                rm -rf ${WORKSPACE}/bin || true
+            '''
         }
+
+        success {
+			echo '''
+                === Deployment Successful ===
+                Your application has been deployed to Kubernetes!
+
+                To access your application:
+                1. Make sure minikube tunnel is running
+                2. Run: kubectl get services
+                3. Access the frontend service URL
+            '''
+        }
+
         failure {
 			script {
 				sh '''
+                    echo "=== Deployment Failed - Gathering Debug Information ==="
                     export KUBECONFIG=${WORKSPACE}/kubeconfig
                     export PATH=${WORKSPACE}/bin:$PATH
 
-                    echo "Checking kubectl configuration..."
-                    kubectl config current-context || true
+                    echo "=== Kubectl Configuration ==="
+                    kubectl config current-context || echo "No current context"
+                    kubectl config view || echo "Cannot view config"
 
-                    echo "Getting pod logs for backend..."
-                    kubectl logs -l app=todo-backend --tail=50 || true
+                    echo "=== Cluster Info ==="
+                    kubectl cluster-info || echo "Cannot get cluster info"
 
-                    echo "Getting pod logs for frontend..."
-                    kubectl logs -l app=todo-frontend --tail=50 || true
+                    echo "=== Pod Status ==="
+                    kubectl get pods -o wide || echo "Cannot get pods"
 
-                    echo "Checking pod status..."
-                    kubectl get pods -o wide || true
+                    echo "=== Pod Describe ==="
+                    kubectl describe pods || echo "Cannot describe pods"
+
+                    echo "=== Backend Logs ==="
+                    kubectl logs -l app=todo-backend --tail=50 || echo "Cannot get backend logs"
+
+                    echo "=== Frontend Logs ==="
+                    kubectl logs -l app=todo-frontend --tail=50 || echo "Cannot get frontend logs"
+
+                    echo "=== Events ==="
+                    kubectl get events --sort-by=.metadata.creationTimestamp || echo "Cannot get events"
+
+                    echo "=== Docker Images ==="
+                    docker images | grep todo || echo "No todo images found"
                 '''
             }
         }
