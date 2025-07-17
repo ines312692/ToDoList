@@ -1,5 +1,10 @@
 pipeline {
-	agent { label 'docker-agent' }
+	agent {
+		label 'docker-agent'
+    docker {
+			args '--network host'
+    }
+}
 
     environment {
 		KUBECONFIG = "${WORKSPACE}/kubeconfig"
