@@ -16,6 +16,11 @@ pipeline {
         }
 
         stage('Build Frontend') {
+			agent {
+			docker {
+				image 'docker:24.0.0-dind'
+      args '-v /var/run/docker.sock:/var/run/docker.sock'
+    }}
 			steps {
 				dir('To_Do_List') {
 					script {
@@ -33,6 +38,11 @@ pipeline {
         }
 
         stage('Build Backend') {
+			agent {
+				docker {
+					image 'docker:24.0.0-dind'
+      args '-v /var/run/docker.sock:/var/run/docker.sock'
+    }}
 			steps {
 				dir('To_Do_List_Backend') {
 					script {
@@ -47,6 +57,12 @@ pipeline {
         }
 
         stage('Deploy to Minikube') {
+			agent {
+				docker {
+					image 'bitnami/kubectl:latest'
+      args '-v $HOME/.kube:/root/.kube'
+    }
+  }
 			steps {
 				withKubeConfig([credentialsId: env.KUBECONFIG_FILE]) {
 					script {
