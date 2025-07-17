@@ -6,8 +6,8 @@ pipeline {
   }
 
   environment {
-		KUBECONFIG_CRED_ID = 'kubeconfig-minikube' // ID de ta credential Secret File kubeconfig
-    KUBECONFIG_PATH = '/home/jenkins/.kube/config'
+		KUBECONFIG_CRED_ID = 'kubeconfig-minikube'
+       KUBECONFIG_PATH = '/home/jenkins/.kube/config'
   }
 
   stages {
