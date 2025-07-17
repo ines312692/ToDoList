@@ -2,7 +2,7 @@ pipeline {
 	agent any
 
     environment {
-		KUBECONFIG = "${WORKSPACE}/kubeconfig-export.yaml"
+
         FRONTEND_IMAGE = 'todo-frontend'
         BACKEND_IMAGE = 'todo-backend'
     }
@@ -46,13 +46,14 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
 			steps {
-				withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
-					sh 'kubectl get pods'
-                    sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-                    sh 'kubectl apply -f k8s/backend-deployment.yaml'
+				withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG_FILE')]) {
+					withEnv(["KUBECONFIG=${KUBECONFIG_FILE}", "PATH=${WORKSPACE}/bin:${env.PATH}"]) {
+						sh 'kubectl get pods'
+                        sh 'kubectl apply -f k8s/frontend-deployment.yaml'
+                        sh 'kubectl apply -f k8s/backend-deployment.yaml'
+                    }
                 }
             }
-
         }
     }
 
