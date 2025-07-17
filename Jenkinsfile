@@ -16,24 +16,7 @@ pipeline {
             }
         }
 
-        stage('Build Frontend') {
-			agent {
-				docker {
-					image 'node:20-alpine'
-                    args '-u root:root'
-                }
-            }
-            steps {
-				dir('To_Do_List_Frontend') {
-					sh '''
-                        echo "Installing frontend dependencies..."
-                        npm install
-                        echo " Building frontend..."
 
-                    '''
-                }
-            }
-        }
 
         stage('Build Frontend') {
 			steps {
