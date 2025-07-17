@@ -17,6 +17,11 @@ pipeline {
         }
 
         stage('Build Frontend') {
+			agent {
+				docker {
+					image 'docker:20.10.16'  // image avec docker CLI
+            args '-v /var/run/docker.sock:/var/run/docker.sock' // pour utiliser le démon docker de l’hôte
+        }}
 			steps {
 				dir('To_Do_List') {
 					sh "docker build -t ${FRONTEND_IMAGE}:latest ."
