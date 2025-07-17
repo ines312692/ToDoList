@@ -1,11 +1,5 @@
 pipeline {
-
-	agent {
-		docker {
-			image 'node:20-alpine' // ou une image qui contient Docker et curl
-            args '--network host -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+	agent any
 
     environment {
 		KUBECONFIG = "${WORKSPACE}/kubeconfig"
