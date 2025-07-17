@@ -8,7 +8,6 @@ pipeline {
     }
 
     stages {
-
 		stage('Checkout') {
 			steps {
 				checkout scm
@@ -19,13 +18,13 @@ pipeline {
 			agent {
 				docker {
 					image 'node:20-alpine'
-                    args '-u root'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
             steps {
 				dir('To_Do_List') {
 					sh 'npm install'
-
+                    sh 'npm run build'
                 }
             }
         }
@@ -34,8 +33,7 @@ pipeline {
 			agent {
 				docker {
 					image 'docker:24.0.0'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                    args '-u root'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
             steps {
@@ -52,7 +50,7 @@ pipeline {
 			agent {
 				docker {
 					image 'bitnami/kubectl:latest'
-                    args '-v $HOME/.kube:/root/.kube'
+                    args "-v \$HOME/.kube:/root/.kube"
                 }
             }
             steps {
@@ -60,10 +58,8 @@ pipeline {
 					script {
 						sh 'kubectl apply -f k8s/backend-deployment.yaml'
                         sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-
                         sh 'kubectl wait --for=condition=ready pod -l app=todo-backend --timeout=300s'
                         sh 'kubectl wait --for=condition=ready pod -l app=todo-frontend --timeout=300s'
-
                         sh 'kubectl get pods'
                         sh 'kubectl get services'
                         sh 'minikube service todo-frontend-service --url'
@@ -75,18 +71,27 @@ pipeline {
 
     post {
 		always {
-			script {
-				docker.image('docker:24.0.0').inside('-v /var/run/docker.sock:/var/run/docker.sock') {
-					sh 'docker image prune -f'
+			agent {
+				docker {
+					image 'docker:24.0.0'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
+            steps {
+				sh 'docker image prune -f || true'
+            }
         }
+
         failure {
-			script {
-				docker.image('bitnami/kubectl:latest').inside('-v $HOME/.kube:/root/.kube') {
-					sh 'kubectl logs -l app=todo-backend --tail=50 || true'
-                    sh 'kubectl logs -l app=todo-frontend --tail=50 || true'
+			agent {
+				docker {
+					image 'bitnami/kubectl:latest'
+                    args "-v \$HOME/.kube:/root/.kube"
                 }
+            }
+            steps {
+				sh 'kubectl logs -l app=todo-backend --tail=50 || true'
+                sh 'kubectl logs -l app=todo-frontend --tail=50 || true'
             }
         }
     }
