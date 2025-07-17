@@ -35,21 +35,18 @@ pipeline {
             }
         }
 
-        stage('Build Backend') {
-			agent {
-				docker {
-					image 'node:20-alpine'
-                    args '-u root:root'
+        stage('Build Frontend') {
+			steps {
+				dir('To_Do_List') {
+					sh "docker build -t ${FRONTEND_IMAGE}:latest ."
                 }
             }
-            steps {
+        }
+
+        stage('Build Backend') {
+			steps {
 				dir('To_Do_List_Backend') {
-					sh '''
-                        echo "Installing backend dependencies..."
-                        npm install
-                        echo " Running backend tests (if any)..."
-                        # npm test
-                    '''
+					sh "docker build -t ${BACKEND_IMAGE}:latest ."
                 }
             }
         }
