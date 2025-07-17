@@ -1,10 +1,5 @@
 pipeline {
-	agent {
-		docker {
-			image 'bitnami/kubectl:1.33.1'
-            args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+	agent any
 
     environment {
 		KUBECONFIG_FILE = 'minikube-kubeconfig'
