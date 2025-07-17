@@ -91,11 +91,6 @@ pipeline {
 			// Nettoyer les images locales si nécessaire
             sh 'docker image prune -f'
         }
-        failure {
-			echo 'Pipeline failed!'
-            // Afficher les logs pour debug
-            sh 'kubectl logs -l app=todo-backend --tail=50'
-            sh 'kubectl logs -l app=todo-frontend --tail=50'
-        }
+
     }
 }
