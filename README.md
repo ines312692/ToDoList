@@ -28,6 +28,7 @@ This ToDo List application provides the following features:
 
 ### DevOps
 - Docker Compose for multi-container orchestration
+- Kubernetes for container orchestration and deployment
 - Jenkins for CI/CD pipeline
 
 ## Project Structure
@@ -50,6 +51,10 @@ ToDo List/
 │   │   └── data/               # Data storage directory
 │   └── Dockerfile              # Backend Docker configuration
 │
+├── k8s/                        # Kubernetes deployment files
+│   ├── frontend-deployment.yaml # Frontend K8s deployment and service
+│   └── backend-deployment.yaml  # Backend K8s deployment and service
+│
 ├── docker-compose.yml          # Docker Compose configuration
 ├── Jenkinsfile                 # Jenkins CI/CD pipeline
 └── README.md                   # Project documentation
@@ -60,6 +65,8 @@ ToDo List/
 ### Prerequisites
 - Docker and Docker Compose
 - Node.js and npm (for local development)
+- Minikube or other Kubernetes cluster (for Kubernetes deployment)
+- kubectl CLI tool (for Kubernetes deployment)
 
 ### Using Docker Compose (Recommended)
 1. Clone the repository
@@ -69,6 +76,30 @@ ToDo List/
    docker-compose up -d
    ```
 4. Access the application at http://localhost:8081
+
+### Using Kubernetes
+1. Clone the repository
+2. Start your Kubernetes cluster (e.g., minikube start)
+3. Build the Docker images:
+   ```
+   docker build -t todo-frontend:latest ./To_Do_List/
+   docker build -t todo-backend:latest ./To_Do_List_Backend/
+   ```
+4. If using Minikube, load the images into Minikube:
+   ```
+   minikube image load todo-frontend:latest
+   minikube image load todo-backend:latest
+   ```
+5. Apply the Kubernetes deployment files:
+   ```
+   kubectl apply -f k8s/backend-deployment.yaml
+   kubectl apply -f k8s/frontend-deployment.yaml
+   ```
+6. Get the URL to access the frontend service:
+   ```
+   minikube service todo-frontend-service --url
+   ```
+7. Access the application using the URL provided by the previous command
 
 ### Local Development Setup
 
@@ -119,12 +150,23 @@ The backend provides the following RESTful API endpoints:
 
 The application can be deployed using the included Jenkins pipeline:
 
-1. Configure Jenkins with appropriate Docker permissions
+1. Configure Jenkins with appropriate Docker permissions and Kubernetes access
 2. Create a new pipeline job pointing to the repository
 3. The pipeline will:
     - Build Docker images for frontend and backend
     - Run tests
-    - Deploy the application using Docker Compose
+    - Deploy the application using either Docker Compose or Kubernetes
+
+### Docker Compose Deployment
+The Jenkins pipeline can deploy the application using Docker Compose, which is suitable for simple deployments.
+
+### Kubernetes Deployment
+For more scalable and robust deployments, the application can be deployed to a Kubernetes cluster:
+
+1. The Jenkins pipeline uses the configured Kubernetes credentials (KUBECONFIG_FILE)
+2. It builds and pushes the Docker images
+3. It applies the Kubernetes deployment files from the k8s directory
+4. The application is then accessible through the Kubernetes service
 
 ## Data Persistence
 
