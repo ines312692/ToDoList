@@ -1,7 +1,7 @@
 pipeline {
 	agent {
 		docker {
-			image 'docker:24.0.0'
+			image 'bitnami/kubectl:1.33.1'
             args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
