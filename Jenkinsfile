@@ -63,32 +63,15 @@ pipeline {
             }
         }
 
-        stage('Verify Kubernetes Connection') {
+
+        stage('Debug Pause') {
 			steps {
 				sh '''
-                    echo "=== Verifying Kubernetes API connectivity ==="
-                    export KUBECONFIG=$KUBECONFIG
-                    export PATH=${WORKSPACE}/bin:$PATH
-
-                    echo "Testing API server connectivity..."
-                    kubectl cluster-info --request-timeout=30s || {
-                        echo "WARNING: Cannot connect to Kubernetes API"
-                        echo "This might be due to network connectivity issues"
-                        echo "Make sure 'minikube tunnel' is running on the host machine"
-
-                        # Tentative de diagnostic
-                        echo "=== Network Diagnosis ==="
-                        netstat -an | grep :8443 || echo "Port 8443 not listening"
-
-                        # Ne pas faire échouer le pipeline, juste avertir
-                        echo "Continuing with deployment..."
-                    }
-
-                    echo "Current kubectl context:"
-                    kubectl config current-context || echo "No current context"
-                '''
-            }
-        }
+            echo "Pausing for debugging..."
+            sleep 60
+        '''
+    }
+}
 
         stage('Deploy to Kubernetes') {
 			steps {
