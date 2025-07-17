@@ -1,5 +1,5 @@
 pipeline {
-	agent any
+	agent { label 'docker-agent' }
 
     environment {
 		KUBECONFIG = "${WORKSPACE}/kubeconfig"
@@ -15,7 +15,6 @@ pipeline {
                 checkout scm
             }
         }
-
 
 
         stage('Install Kubectl') {
