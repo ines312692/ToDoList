@@ -1,9 +1,5 @@
 pipeline {
-  agent {
-    kubernetes {
-        inheritFrom 'k8s'
-    }
-  }
+  agent any
 
   stages {
     stage('Test Agent Kubernetes') {
