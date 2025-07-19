@@ -1,5 +1,5 @@
 pipeline {
-  agent any  // Utilise l'agent par défaut
+  agent any
 
   stages {
     stage('Test Connection') {
@@ -7,7 +7,6 @@ pipeline {
         script {
           echo "=== Test de base ==="
 
-          // Si Jenkins sur Windows et minikube dans WSL
           try {
             bat 'wsl kubectl get nodes'
             bat 'wsl helm version'
@@ -15,7 +14,6 @@ pipeline {
           } catch (Exception e) {
             echo "❌ WSL approach failed: ${e.getMessage()}"
 
-            // Essai direct
             try {
               sh 'kubectl get nodes'
               sh 'helm version'
@@ -31,13 +29,11 @@ pipeline {
 
     stage('Test Deploy') {
       when {
-        // Seulement si le test précédent passe
         expression { return true }
       }
       steps {
         script {
           try {
-            // Essai avec WSL d'abord
             bat '''
               wsl export KUBECONFIG=~/.kube/config
               wsl helm lint ./charts/frontend-chart
