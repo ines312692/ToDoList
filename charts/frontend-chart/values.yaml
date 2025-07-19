@@ -1,0 +1,12 @@
+replicaCount: 1
+
+image:
+  repository: todo-frontend
+  tag: latest
+  pullPolicy: Never
+
+service:
+  type: NodePort
+  port: 80
+
+containerPort: 80

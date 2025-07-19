@@ -1,0 +1,4 @@
+apiVersion: v2
+name: todo-backend
+description: Helm chart for the backend of the ToDo app
+version: 0.1.0

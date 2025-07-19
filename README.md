@@ -55,6 +55,21 @@ ToDo List/
 │   ├── frontend-deployment.yaml # Frontend K8s deployment and service
 │   └── backend-deployment.yaml  # Backend K8s deployment and service
 │
+├── charts/                     # Helm charts for Kubernetes deployment
+│   ├── frontend-chart/         # Frontend Helm chart
+│   │   ├── templates/          # Kubernetes templates
+│   │   │   ├── deployment.yaml # Frontend deployment template
+│   │   │   └── service.yaml    # Frontend service template
+│   │   ├── Chart.yaml          # Chart metadata
+│   │   └── values.yaml         # Default configuration values
+│   │
+│   └── backend-chart/          # Backend Helm chart
+│       ├── templates/          # Kubernetes templates
+│       │   ├── deployment.yaml # Backend deployment template
+│       │   └── service.yaml    # Backend service template
+│       ├── Chart.yaml          # Chart metadata
+│       └── values.yaml         # Default configuration values
+│
 ├── docker-compose.yml          # Docker Compose configuration
 ├── Jenkinsfile                 # Jenkins CI/CD pipeline
 └── README.md                   # Project documentation
@@ -98,6 +113,37 @@ ToDo List/
 6. Get the URL to access the frontend service:
    ```
    minikube service todo-frontend-service --url
+   ```
+7. Access the application using the URL provided by the previous command
+
+### Using Helm Charts
+1. Clone the repository
+2. Start your Kubernetes cluster (e.g., minikube start)
+3. Build the Docker images:
+   ```
+   docker build -t todo-frontend:latest ./To_Do_List/
+   docker build -t todo-backend:latest ./To_Do_List_Backend/
+   ```
+4. If using Minikube, load the images into Minikube:
+   ```
+   minikube image load todo-frontend:latest
+   minikube image load todo-backend:latest
+   ```
+5. Install the Helm charts:
+   ```
+   # Install frontend chart
+   helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
+
+   # Install backend chart
+   helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
+   ```
+6. Get the URL to access the frontend service:
+   ```
+   kubectl get svc todo-frontend -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+   ```
+   Or if using Minikube:
+   ```
+   minikube service todo-frontend --url
    ```
 7. Access the application using the URL provided by the previous command
 
@@ -150,23 +196,32 @@ The backend provides the following RESTful API endpoints:
 
 The application can be deployed using the included Jenkins pipeline:
 
-1. Configure Jenkins with appropriate Docker permissions and Kubernetes access
+1. Configure Jenkins with appropriate Kubernetes access
 2. Create a new pipeline job pointing to the repository
 3. The pipeline will:
-    - Build Docker images for frontend and backend
-    - Run tests
-    - Deploy the application using either Docker Compose or Kubernetes
+    - Prepare the Kubernetes configuration
+    - Deploy the frontend and backend applications using Helm charts
+    - Verify the deployment by checking pods and services
 
 ### Docker Compose Deployment
-The Jenkins pipeline can deploy the application using Docker Compose, which is suitable for simple deployments.
+While the current Jenkins pipeline focuses on Helm chart deployment, Docker Compose provides an alternative method for simpler deployments. This could be implemented as an additional deployment option in the pipeline.
 
-### Kubernetes Deployment
-For more scalable and robust deployments, the application can be deployed to a Kubernetes cluster:
+### Kubernetes Deployment with Helm Charts
+For more scalable and robust deployments, the application can be deployed to a Kubernetes cluster using Helm charts:
 
-1. The Jenkins pipeline uses the configured Kubernetes credentials (KUBECONFIG_FILE)
-2. It builds and pushes the Docker images
-3. It applies the Kubernetes deployment files from the k8s directory
-4. The application is then accessible through the Kubernetes service
+1. The Jenkins pipeline uses the configured Kubernetes credentials (configminikube)
+2. It prepares the kubeconfig file for Kubernetes access
+3. It deploys the application using Helm charts:
+   - Deploys the frontend using `helm upgrade --install todo-frontend ./charts/frontend-chart`
+   - Deploys the backend using `helm upgrade --install todo-backend ./charts/backend-chart`
+4. The Helm charts manage the Kubernetes resources (deployments, services, etc.)
+5. The application is then accessible through the Kubernetes service
+
+The Helm charts provide several benefits:
+- Templated Kubernetes manifests for easier configuration
+- Version control of deployments
+- Simplified rollbacks
+- Environment-specific configurations using values files
 
 ## Data Persistence
 
