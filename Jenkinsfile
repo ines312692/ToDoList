@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent kube
 
   stages {
     stage('Test Agent Kubernetes') {
