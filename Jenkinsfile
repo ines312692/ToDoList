@@ -1,7 +1,7 @@
 pipeline {
   agent {
     kubernetes {
-      inheritFrom 'k8s-agent'
+      inheritFrom 'k8s'
       defaultContainer 'kubectl'
     }
   }
