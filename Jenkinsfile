@@ -1,7 +1,7 @@
 pipeline {
   agent {
     kubernetes {
-        label 'k8s'
+        inheritFrom 'k8s'
     }
   }
 
