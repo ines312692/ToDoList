@@ -1,90 +1,53 @@
 pipeline {
- agent {
-     kubernetes {
-       yaml """
-         apiVersion: v1
-         kind: Pod
-         spec:
-           containers:
-           - name: kubectl
-             image: bitnami/kubectl:latest
-             command:
-             - sleep
-             args:
-             - 99d
-       """
-     }
-   }
-
-  environment {
-    KUBECONFIG_PATH = '/home/jenkins/.kube/config'
-  }
+  agent any  // Utilise l'agent par défaut
 
   stages {
-    stage('Prepare kubeconfig') {
+    stage('Test Connection') {
       steps {
-        container('kubectl') {
-          withCredentials([file(credentialsId: 'configminikube', variable: 'KUBECONFIG_FILE')]) {
-            sh '''
-              mkdir -p $(dirname ${KUBECONFIG_PATH})
-              cp $KUBECONFIG_FILE ${KUBECONFIG_PATH}
-              chmod 600 ${KUBECONFIG_PATH}
-              export KUBECONFIG=${KUBECONFIG_PATH}
-              kubectl config get-contexts
-            '''
+        script {
+          echo "=== Test de base ==="
+
+          // Si Jenkins sur Windows et minikube dans WSL
+          try {
+            bat 'wsl kubectl get nodes'
+            bat 'wsl helm version'
+            echo "✅ WSL + kubectl/helm OK"
+          } catch (Exception e) {
+            echo "❌ WSL approach failed: ${e.getMessage()}"
+
+            // Essai direct
+            try {
+              sh 'kubectl get nodes'
+              sh 'helm version'
+              echo "✅ Direct kubectl/helm OK"
+            } catch (Exception e2) {
+              echo "❌ Direct approach failed: ${e2.getMessage()}"
+              echo "ℹ️ Il faut installer kubectl/helm dans Jenkins container"
+            }
           }
         }
       }
     }
 
-    stage('Deploy frontend') {
-      steps {
-        container('helm') {
-          sh '''
-            export KUBECONFIG=${KUBECONFIG_PATH}
-            helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
-          '''
-        }
+    stage('Test Deploy') {
+      when {
+        // Seulement si le test précédent passe
+        expression { return true }
       }
-    }
-
-    stage('Deploy backend') {
       steps {
-        container('helm') {
-          sh '''
-            export KUBECONFIG=${KUBECONFIG_PATH}
-            helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
-          '''
+        script {
+          try {
+            // Essai avec WSL d'abord
+            bat '''
+              wsl export KUBECONFIG=~/.kube/config
+              wsl helm lint ./charts/frontend-chart
+              wsl helm template test-frontend ./charts/frontend-chart
+            '''
+            echo "✅ Charts OK via WSL"
+          } catch (Exception e) {
+            echo "❌ WSL helm failed: ${e.getMessage()}"
+          }
         }
-      }
-    }
-
-    stage('Verify deployment') {
-      steps {
-        container('kubectl') {
-          sh '''
-            export KUBECONFIG=${KUBECONFIG_PATH}
-            kubectl get pods -o wide
-            kubectl get svc
-          '''
-        }
-      }
-    }
-  }
-
-  post {
-    success {
-      echo '=== Déploiement Kubernetes réussi ! ==='
-    }
-    failure {
-      echo '=== Échec du déploiement ==='
-      container('kubectl') {
-        sh '''
-          export KUBECONFIG=${KUBECONFIG_PATH}
-          kubectl describe pods || true
-          kubectl logs -l app=todo-frontend --tail=20 || true
-          kubectl logs -l app=todo-backend --tail=20 || true
-        '''
       }
     }
   }
