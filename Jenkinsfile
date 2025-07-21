@@ -26,6 +26,8 @@ spec:
                steps {
                    container('kubectl') {
                        sh '''
+                          ls -l /bin /usr/bin | grep sh || echo "Pas de shell trouvé"
+
                            echo "Checking kubeconfig..."
                            ls -la /home/jenkins/.kube/ || echo "Kubeconfig directory not found"
 
