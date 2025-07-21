@@ -1,19 +1,9 @@
 pipeline {
  agent {
-     kubernetes {
-       yaml """
-         apiVersion: v1
-         kind: Pod
-         spec:
-           containers:
-           - name: kubectl
-             image: bitnami/kubectl:latest
-             command:
-             - sleep
-             args:
-             - 99d
-       """
-     }
+    agent {
+        kubernetes {
+         inheritFrom 'k8s'
+        }
    }
 
   environment {
