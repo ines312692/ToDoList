@@ -5,15 +5,6 @@ pipeline {
     }
   }
 
-  environment {
-    KUBECONFIG = credentials('kubeconfig-id')
-    HELM_EXPERIMENTAL_OCI = '1'
-  }
-
-  options {
-    timeout(time: 30, unit: 'MINUTES')
-    retry(2)
-  }
 
   stages {
     stage('Validate Environment') {
@@ -41,7 +32,7 @@ pipeline {
           sh '''
             echo "=== Configuration RBAC ==="
 
-            # Vérifier si le ServiceAccount existe déjà
+
             if kubectl get serviceaccount jenkins-deployer -n default >/dev/null 2>&1; then
               echo "ServiceAccount jenkins-deployer existe déjà"
             else
@@ -78,7 +69,7 @@ EOF
           steps {
             container('kubectl') {
               sh '''
-                echo "=== Version Kubectl ==="
+
                 kubectl version --client --output=yaml
               '''
             }
@@ -88,7 +79,7 @@ EOF
           steps {
             container('helm') {
               sh '''
-                echo "=== Version Helm ==="
+
                 helm version
                 helm repo list || echo "Aucun repo configuré"
               '''
@@ -102,7 +93,7 @@ EOF
       steps {
         container('helm') {
           sh '''
-            echo "=== Validation des charts Helm ==="
+
 
             if [ ! -d "./charts/frontend-chart" ]; then
               echo "ERREUR: Chart frontend introuvable"
@@ -132,7 +123,7 @@ EOF
           steps {
             container('helm') {
               sh '''
-                echo "=== Déploiement Frontend ==="
+
 
                 helm upgrade --install todo-frontend ./charts/frontend-chart \
                   -f ./charts/frontend-chart/values.yaml \
@@ -151,7 +142,7 @@ EOF
           steps {
             container('helm') {
               sh '''
-                echo "=== Déploiement Backend ==="
+
 
                 helm upgrade --install todo-backend ./charts/backend-chart \
                   -f ./charts/backend-chart/values.yaml \
@@ -173,19 +164,14 @@ EOF
       steps {
         container('kubectl') {
           sh '''
-            echo "=== Vérification du déploiement ==="
 
-            # Attendre que les pods soient prêts
-            echo "Attente de la disponibilité des pods..."
             kubectl wait --for=condition=Ready pod -l app=todo-frontend --timeout=120s || true
             kubectl wait --for=condition=Ready pod -l app=todo-backend --timeout=120s || true
 
-            echo "=== État des ressources ==="
             kubectl get pods -o wide
             kubectl get svc
             kubectl get ingress || echo "Pas d'ingress configuré"
 
-            echo "=== État des déploiements ==="
             kubectl get deployments
             kubectl describe deployment todo-frontend || true
             kubectl describe deployment todo-backend || true
