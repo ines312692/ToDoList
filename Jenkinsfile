@@ -11,41 +11,35 @@ spec:
       image: lachlanevenson/k8s-kubectl:v1.27.4
       command: ['cat']
       tty: true
-      volumeMounts:
-        - name: kubeconfig
-          mountPath: /home/jenkins/.kube
-          readOnly: true
     - name: helm
       image: alpine/helm:3.13.3
       command: ['cat']
       tty: true
-  volumes:
-    - name: kubeconfig
-      secret:
-        secretName: kubeconfig-secret
 """
         }
     }
 
-    stages {
-        stage('Vérifier Kubernetes depuis Jenkins') {
-            steps {
-                container('kubectl') {
-                    sh '''
-                        echo "Checking kubeconfig..."
-                        ls -la /home/jenkins/.kube/ || echo "Kubeconfig directory not found"
 
-                        if [ -f "$KUBECONFIG_PATH" ]; then
-                            echo "Kubeconfig found"
-                            kubectl config current-context
-                            kubectl get pods -A
-                        else
-                            echo "Kubeconfig not found at $KUBECONFIG_PATH"
-                            exit 1
-                        fi
-                    '''
-                }
-            }
-        }
-    }
-}
+
+   stages {
+           stage('Vérifier Kubernetes depuis Jenkins') {
+               steps {
+                   container('kubectl') {
+                       sh '''
+                           echo "Checking kubeconfig..."
+                           ls -la /home/jenkins/.kube/ || echo "Kubeconfig directory not found"
+
+                           if [ -f "$KUBECONFIG_PATH" ]; then
+                               echo "Kubeconfig found"
+                               kubectl config current-context
+                               kubectl get pods -A
+                           else
+                               echo "Kubeconfig not found at $KUBECONFIG_PATH"
+                               exit 1
+                           fi
+                       '''
+                   }
+               }
+           }
+       }
+   }
