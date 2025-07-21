@@ -1,7 +1,21 @@
 pipeline {
     agent {
         kubernetes {
-            inheritFrom 'k8s'
+            label 'ks'
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command: ['cat']
+      tty: true
+    - name: helm
+      image: alpine/helm:3.13.3
+      command: ['cat']
+      tty: true
+"""
         }
     }
 
@@ -69,13 +83,11 @@ EOF
                         echo "DEBUG: deploy frontend"
                         export KUBECONFIG=${KUBECONFIG_PATH}
 
-                        # Vérifier que le service account existe
                         kubectl get serviceaccount jenkins || {
                             echo "Service account jenkins n'existe pas, création..."
                             kubectl create serviceaccount jenkins
                         }
 
-                        # Déployer avec le service account jenkins
                         helm upgrade --install todo-frontend ./charts/frontend-chart \
                             -f ./charts/frontend-chart/values.yaml \
                             --set serviceAccount.name=jenkins \
@@ -119,7 +131,6 @@ EOF
                         echo "=== Deployment Status ==="
                         kubectl get deployments
 
-                        # Attendre que les pods soient prêts
                         echo "=== Attente des pods ==="
                         kubectl wait --for=condition=ready pod -l app=todo-frontend --timeout=300s || echo "Frontend pods non prêts"
                         kubectl wait --for=condition=ready pod -l app=todo-backend --timeout=300s || echo "Backend pods non prêts"
