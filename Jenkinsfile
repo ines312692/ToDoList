@@ -10,21 +10,7 @@ pipeline {
   }
 
   stages {
-    stage('Prepare kubeconfig') {
-      steps {
-        container('kubectl') {
-          withCredentials([file(credentialsId: 'configminikube', variable: 'KUBECONFIG_FILE')]) {
-            sh '''
-              echo "DEBUG: prepare kubeconfig"
-              mkdir -p $(dirname ${KUBECONFIG_PATH})
-              cp $KUBECONFIG_FILE ${KUBECONFIG_PATH}
-              chmod 600 ${KUBECONFIG_PATH}
-              KUBECONFIG=${KUBECONFIG_PATH} kubectl config get-contexts
-            '''
-          }
-        }
-      }
-    }
+
 
     stage('Deploy frontend') {
       steps {
