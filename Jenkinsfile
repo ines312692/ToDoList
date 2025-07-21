@@ -2,24 +2,7 @@ pipeline {
     agent {
         kubernetes {
             inheritFrom 'k8s'
-            yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-    - name: kubectl
-      image: lachlanevenson/k8s-kubectl:v1.27.4
-      command: ['/bin/sh', '-c']
-      args: ['cat']
-      tty: true
-      stdin: true
-    - name: helm
-      image: alpine/helm:3.13.3
-      command: ['/bin/sh', '-c']
-      args: ['cat']
-      tty: true
-      stdin: true
-"""
+
         }
     }
 
@@ -28,11 +11,18 @@ spec:
     }
 
     stages {
+    stage('Test shell dans container Helm') {
+        steps {
+            container('helm') {
+                sh 'echo "Test dans container Helm"'
+            }
+        }
+    }
         stage('Debug Environment') {
             steps {
                 container('kubectl') {
                     script {
-                        // Enable Jenkins diagnostics as suggested in error
+
                         sh '''
                             set -x  # Enable debug mode
                             echo "=== Environment Debug ==="
@@ -52,6 +42,7 @@ spec:
                 }
             }
         }
+
 
         stage('Vérifier Kubernetes depuis Jenkins') {
             steps {
