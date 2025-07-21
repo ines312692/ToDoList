@@ -1,26 +1,9 @@
 pipeline {
   agent {
     kubernetes {
-    inheritFrom 'ks'
-      yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-    - name: tools
-      image: ubuntu:22.04
-      command: ['cat']
-      tty: true
-      volumeMounts:
-        - name: kubeconfig
-          mountPath: /root/.kube
-  volumes:
-    - name: kubeconfig
-      hostPath:
-        path: /home/ines/.kube
-        type: Directory
-"""
-    }
+    inheritFrom 'k8s'
+
+  }
   }
 
   environment {
