@@ -1,0 +1,50 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'jenkins-backend'
+      defaultContainer 'helm'
+      namespace 'default'
+      serviceAccount 'jenkins-deployer'
+    }
+  }
+
+  environment {
+    CHART_PATH = './charts/backend-chart'
+    NAMESPACE = 'jenkins-developer'
+  }
+
+  stages {
+    stage('Deploy Backend') {
+      steps {
+        container('helm') {
+          sh '''
+            echo "Déploiement Backend "
+            helm upgrade --install todo-backend $CHART_PATH \
+              --namespace $NAMESPACE \
+              --create-namespace \
+              --wait
+          '''
+        }
+      }
+    }
+
+    stage('Verify') {
+      steps {
+        container('kubectl') {
+          sh '''
+            kubectl get pods -n $NAMESPACE -l app=todo-backend
+            kubectl get svc -n $NAMESPACE -l app=todo-backend
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    failure {
+      container('kubectl') {
+        sh 'kubectl logs -l app=todo-backend -n $NAMESPACE --tail=50 || true'
+      }
+    }
+  }
+}
