@@ -15,11 +15,11 @@ pipeline {
         container('kubectl') {
           withCredentials([file(credentialsId: 'configminikube', variable: 'KUBECONFIG_FILE')]) {
             sh '''
+              echo "DEBUG: prepare kubeconfig"
               mkdir -p $(dirname ${KUBECONFIG_PATH})
               cp $KUBECONFIG_FILE ${KUBECONFIG_PATH}
               chmod 600 ${KUBECONFIG_PATH}
-              export KUBECONFIG=${KUBECONFIG_PATH}
-              kubectl config get-contexts
+              KUBECONFIG=${KUBECONFIG_PATH} kubectl config get-contexts
             '''
           }
         }
@@ -30,8 +30,8 @@ pipeline {
       steps {
         container('helm') {
           sh '''
-            export KUBECONFIG=${KUBECONFIG_PATH}
-            helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
+            echo "DEBUG: deploy frontend"
+            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
           '''
         }
       }
@@ -41,8 +41,8 @@ pipeline {
       steps {
         container('helm') {
           sh '''
-            export KUBECONFIG=${KUBECONFIG_PATH}
-            helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
+            echo "DEBUG: deploy backend"
+            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
           '''
         }
       }
@@ -52,9 +52,9 @@ pipeline {
       steps {
         container('kubectl') {
           sh '''
-            export KUBECONFIG=${KUBECONFIG_PATH}
-            kubectl get pods -o wide
-            kubectl get svc
+            echo "DEBUG: verify deployment"
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get pods -o wide
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get svc
           '''
         }
       }
@@ -69,10 +69,10 @@ pipeline {
       echo '=== Échec du déploiement ==='
       container('kubectl') {
         sh '''
-          export KUBECONFIG=${KUBECONFIG_PATH}
-          kubectl describe pods || true
-          kubectl logs -l app=todo-frontend --tail=20 || true
-          kubectl logs -l app=todo-backend --tail=20 || true
+          echo "DEBUG: post failure logs"
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl describe pods || true
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-frontend --tail=20 || true
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-backend --tail=20 || true
         '''
       }
     }
