@@ -1,46 +1,29 @@
 pipeline {
   agent {
     kubernetes {
-      inheritFrom 'k8s'
+      label 'jenkins-helm-agent'
       defaultContainer 'helm'
-      serviceAccount 'jenkins-deployer'
+      namespace 'default' // IMPORTANT : identique à celui du ServiceAccount
+      serviceAccount 'jenkins-deployer' // autorisé via ClusterRoleBinding
+      inheritFrom 'k8s'
     }
   }
 
+  environment {
+    HELM_NAMESPACE = 'jenkins-developer'
+    CHART_PATH = './charts/frontend-chart'
+    VALUES_PATH = './charts/frontend-chart/values.yaml'
+  }
+
   stages {
-    stage('Configure RBAC') {
+
+    stage('Debug Infos') {
       steps {
         container('kubectl') {
           sh '''
-            echo "=== Configuration RBAC ==="
-            if kubectl get serviceaccount jenkins-deployer -n default >/dev/null 2>&1; then
-              echo "ServiceAccount jenkins-deployer existe déjà"
-            else
-              cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: jenkins-deployer
-  namespace: default
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: jenkins-deployer-binding
-subjects:
-  - kind: ServiceAccount
-    name: jenkins-deployer
-    namespace: default
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
-EOF
-              echo "ServiceAccount jenkins-deployer créé ✓"
-            fi
-            echo "=== Verification RBAC ==="
-            kubectl get serviceaccount jenkins-deployer -n default -o yaml
-            kubectl get clusterrolebinding jenkins-deployer-binding -o yaml
+            echo "Namespace utilisé : $(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
+            echo "ServiceAccount actuel :"
+            kubectl config view --minify | grep username
           '''
         }
       }
@@ -50,14 +33,14 @@ EOF
       steps {
         container('helm') {
           sh '''
-            helm upgrade --install todo-frontend ./charts/frontend-chart \
-              -f ./charts/frontend-chart/values.yaml \
-              --namespace jenkins-developer \
+            echo "=== Déploiement du frontend ==="
+            helm upgrade --install todo-frontend $CHART_PATH \
+              -f $VALUES_PATH \
+              --namespace $HELM_NAMESPACE \
               --create-namespace \
               --wait \
               --timeout=300s \
               --debug
-            echo "Frontend déployé "
           '''
         }
       }
@@ -67,16 +50,32 @@ EOF
       steps {
         container('kubectl') {
           sh '''
-            kubectl wait --for=condition=Ready pod -l app=todo-frontend --namespace jenkins-developer --timeout=120s || true
-            kubectl wait --for=condition=Ready pod -l app=todo-backend --namespace jenkins-developer --timeout=120s || true
-            kubectl get pods -o wide --namespace jenkins-developer
-            kubectl get svc --namespace jenkins-developer
-            kubectl get ingress --namespace jenkins-developer || echo "Pas d'ingress configuré"
-            ...
+            echo "=== Vérification des pods frontend ==="
+            kubectl wait --for=condition=Ready pod -l app=todo-frontend \
+              --namespace $HELM_NAMESPACE --timeout=120s || true
+
+            echo "=== Pods ==="
+            kubectl get pods -n $HELM_NAMESPACE -o wide
+
+            echo "=== Services ==="
+            kubectl get svc -n $HELM_NAMESPACE
+
+            echo "=== Ingress ==="
+            kubectl get ingress -n $HELM_NAMESPACE || echo "Pas d'ingress configuré"
           '''
         }
       }
     }
-    ...
+  }
+
+  post {
+    failure {
+      container('kubectl') {
+        sh '''
+          echo "💥 Erreur lors du pipeline. Logs des pods frontend :"
+          kubectl logs -l app=todo-frontend -n $HELM_NAMESPACE --tail=100 || true
+        '''
+      }
+    }
   }
 }
