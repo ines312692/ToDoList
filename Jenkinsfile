@@ -3,18 +3,18 @@ pipeline {
         kubernetes {
             label 'ks'
             yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-    - name: kubectl
-      image: bitnami/kubectl:latest
-      command: ['cat']
-      tty: true
-    - name: helm
-      image: alpine/helm:3.13.3
-      command: ['cat']
-      tty: true
+           apiVersion: v1
+           kind: Pod
+           spec:
+             containers:
+               - name: kubectl
+                 image: lachlanevenson/k8s-kubectl:v1.27.4
+                 command: ['cat']
+                 tty: true
+               - name: helm
+                 image: alpine/helm:3.13.3
+                 command: ['cat']
+                 tty: true
 """
         }
     }
