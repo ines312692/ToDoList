@@ -17,17 +17,7 @@ pipeline {
 
   stages {
 
-    stage('Debug Infos') {
-      steps {
-        container('kubectl') {
-          sh '''
-            echo "Namespace utilisé : $(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-            echo "ServiceAccount actuel :"
-            kubectl config view --minify | grep username
-          '''
-        }
-      }
-    }
+
 
     stage('Deploy Frontend') {
       steps {
@@ -50,17 +40,17 @@ pipeline {
       steps {
         container('kubectl') {
           sh '''
-            echo "=== Vérification des pods frontend ==="
+
             kubectl wait --for=condition=Ready pod -l app=todo-frontend \
               --namespace $HELM_NAMESPACE --timeout=120s || true
 
-            echo "=== Pods ==="
+
             kubectl get pods -n $HELM_NAMESPACE -o wide
 
-            echo "=== Services ==="
+
             kubectl get svc -n $HELM_NAMESPACE
 
-            echo "=== Ingress ==="
+
             kubectl get ingress -n $HELM_NAMESPACE || echo "Pas d'ingress configuré"
           '''
         }
