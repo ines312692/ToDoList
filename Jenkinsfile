@@ -1,7 +1,7 @@
 pipeline {
   agent {
     kubernetes {
-    inheritFrom 'k8s'
+    inheritFrom 'ks'
       yaml """
 apiVersion: v1
 kind: Pod
