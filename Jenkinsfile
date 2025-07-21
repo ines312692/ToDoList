@@ -2,22 +2,6 @@ pipeline {
   agent {
     kubernetes {
       inheritFrom 'k8s'
-      yaml """
-        apiVersion: v1
-        kind: Pod
-        spec:
-          containers:
-          - name: kubectl
-            image: bitnami/kubectl:latest
-            command:
-            - cat
-            tty: true
-          - name: helm
-            image: alpine/helm:latest
-            command:
-            - cat
-            tty: true
-        """
     }
   }
 
