@@ -7,79 +7,80 @@ pipeline {
     }
 
     environment {
-        KUBECONFIG_PATH = "${env.KUBECONFIG ?: '/home/jenkins/.kube/config'}"
-    }
+       KUBECONFIG = '/root/.kube/config'
+     }
 
-    stages {
-    stage('Test shell dans container Helm') {
-        steps {
-            container('helm') {
-                sh 'echo "Test dans container Helm"'
-            }
-        }
-    }
-        stage('Debug Environment') {
-            steps {
-                container('kubectl') {
-                    script {
+     stages {
+       stage('Installer outils') {
+         steps {
+           container('tools') {
+             sh '''
+               apt-get update -qq
+               apt-get install -y curl apt-transport-https gnupg lsb-release bash
 
-                        sh 'echo "Test dans container kubectl"'
-                    }
-                }
-            }
-        }
+               echo ">>> Installing kubectl"
+               curl -LO https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+               chmod +x kubectl && mv kubectl /usr/local/bin/
 
+               echo ">>> Installing helm"
+               curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-        stage('Vérifier Kubernetes depuis Jenkins') {
-            steps {
-                container('kubectl') {
-                    script {
-                        try {
-                            sh '''
-                                #!/bin/sh
-                                set -e  # Exit on error
-                                set -x  # Debug mode
+               echo ">>> Vérification versions"
+               kubectl version --client
+               helm version
+             '''
+           }
+         }
+       }
 
-                                echo "=== Kubeconfig Check ==="
-                                echo "KUBECONFIG_PATH: ${KUBECONFIG_PATH}"
+       stage('Deploy frontend') {
+         steps {
+           container('tools') {
+             sh '''
+               echo "=== Déploiement frontend ==="
+               helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
+             '''
+           }
+         }
+       }
 
-                                # Check if kubeconfig directory exists
-                                if [ -d "/home/jenkins/.kube/" ]; then
-                                    echo "Kubeconfig directory exists"
-                                    ls -la /home/jenkins/.kube/ || true
-                                else
-                                    echo "Kubeconfig directory not found"
-                                fi
+       stage('Deploy backend') {
+         steps {
+           container('tools') {
+             sh '''
+               echo "=== Déploiement backend ==="
+               helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
+             '''
+           }
+         }
+       }
 
-                                # Check if kubeconfig file exists
-                                if [ -f "${KUBECONFIG_PATH}" ]; then
-                                    echo "Kubeconfig file found at ${KUBECONFIG_PATH}"
-                                    kubectl config current-context || echo "Failed to get current context"
-                                    kubectl get pods -A --request-timeout=10s || echo "Failed to get pods"
-                                else
-                                    echo "Kubeconfig not found at ${KUBECONFIG_PATH}"
-                                    echo "Available files in /home/jenkins/:"
-                                    find /home/jenkins/ -name "*.config" -o -name "*kube*" 2>/dev/null || true
-                                    exit 1
-                                fi
-                            '''
-                        } catch (Exception e) {
-                            echo "Error in kubectl container: ${e.getMessage()}"
-                            currentBuild.result = 'FAILURE'
-                            throw e
-                        }
-                    }
-                }
-            }
-        }
-    }
+       stage('Vérification') {
+         steps {
+           container('tools') {
+             sh '''
+               echo "=== Vérification des pods ==="
+               kubectl get pods -o wide
+               kubectl get svc
+             '''
+           }
+         }
+       }
+     }
 
-    post {
-        always {
-            echo "Pipeline completed with result: ${currentBuild.result ?: 'SUCCESS'}"
-        }
-        failure {
-            echo "Pipeline failed. Check logs above for details."
-        }
-    }
-}
+     post {
+       success {
+         echo ' Déploiement réussi !'
+       }
+       failure {
+         container('tools') {
+           sh '''
+             echo "" Échec du déploiement — logs :"
+             kubectl describe pods || true
+             kubectl logs -l app=todo-frontend --tail=20 || true
+             kubectl logs -l app=todo-backend --tail=20 || true
+           '''
+         }
+       }
+     }
+   }
