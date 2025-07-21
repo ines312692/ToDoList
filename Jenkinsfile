@@ -1,7 +1,7 @@
 pipeline {
   agent {
     kubernetes {
-      label 'k8s-agent'
+      label 'ks'
       defaultContainer 'kubectl'
       yaml """
 apiVersion: v1
