@@ -1,12 +1,69 @@
-replicaCount: 1
+# charts/backend-chart/values.yaml
 
-image:
-  repository: todo-backend
-  tag: latest
-  pullPolicy: Never
+# Application settings
+app:
+  name: todo-backend
+  image:
+    repository: todo-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  port: 3000
+  targetPort: 3000
 
+# Service Account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "jenkins"
+  # Annotations to add to the service account
+  annotations: {}
+
+# Service configuration
 service:
   type: ClusterIP
-  port: 3001
+  port: 3000
+  targetPort: 3000
 
-containerPort: 3001
+# Deployment configuration
+deployment:
+  replicaCount: 1
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# Environment variables
+env:
+  NODE_ENV: production
+  PORT: 3000
+
+# Persistent Volume (if needed for data storage)
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+# Ingress configuration (optional)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: todo-backend.local
+      paths:
+        - path: /api
+          pathType: Prefix
+  tls: []
+
+# Node selector, tolerations and affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}

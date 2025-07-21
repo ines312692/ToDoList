@@ -1,12 +1,57 @@
-replicaCount: 1
+# charts/frontend-chart/values.yaml
 
-image:
-  repository: todo-frontend
-  tag: latest
-  pullPolicy: Never
-
-service:
-  type: NodePort
+# Application settings
+app:
+  name: todo-frontend
+  image:
+    repository: todo-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
   port: 80
+  targetPort: 80
 
-containerPort: 80
+# Service Account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "jenkins"
+  # Annotations to add to the service account
+  annotations: {}
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+# Deployment configuration
+deployment:
+  replicaCount: 1
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# Ingress configuration (optional)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: todo-frontend.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Node selector, tolerations and affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}
