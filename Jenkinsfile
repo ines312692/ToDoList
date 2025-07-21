@@ -1,43 +1,106 @@
 pipeline {
   agent {
     kubernetes {
-    inheritFrom 'k8s'
-      yaml """
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    some-label: helm
-spec:
-  containers:
-  - name: tools
-    image: ubuntu:22.04
-    command:
-    - cat
-    tty: true
-    volumeMounts:
-    - name: kubeconfig
-      mountPath: /root/.kube/config
-      subPath: config
-  volumes:
-  - name: kubeconfig
-    hostPath:
-      path: /home/ines/.kube/config
-      type: File
-"""
+      inheritFrom 'k8s'
     }
   }
+
+
+
   stages {
-    stage('Test kubeconfig') {
+
+    stage('Configurer RBAC') {
       steps {
-        container('tools') {
+        container('kubectl') {
           sh '''
-            apt-get update && apt-get install -y curl
-            curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
-            chmod +x kubectl && mv kubectl /usr/local/bin/
-            kubectl get pods
+            echo "=== Création du ServiceAccount et ClusterRoleBinding ==="
+
+            cat <<EOF | kubectl apply -f -
+            apiVersion: v1
+            kind: ServiceAccount
+            metadata:
+              name: jenkins-deployer
+              namespace: default
+            ---
+            apiVersion: rbac.authorization.k8s.io/v1
+            kind: ClusterRoleBinding
+            metadata:
+              name: jenkins-deployer-binding
+            subjects:
+              - kind: ServiceAccount
+                name: jenkins-deployer
+                namespace: default
+            roleRef:
+              kind: ClusterRole
+              name: cluster-admin
+              apiGroup: rbac.authorization.k8s.io
+            EOF
+
+            echo "ServiceAccount jenkins-deployer configuré"
           '''
         }
+      }
+    }
+
+    stage('Check Tools') {
+      steps {
+        container('kubectl') {
+          sh '''
+            echo "=== Vérification outils ==="
+            kubectl version --client
+            helm version
+          '''
+        }
+      }
+    }
+
+    stage('Deploy frontend') {
+      steps {
+        container('kubectl') {
+          sh '''
+            echo "=== Déploiement frontend ==="
+            helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
+          '''
+        }
+      }
+    }
+
+    stage('Deploy backend') {
+      steps {
+        container('kubectl') {
+          sh '''
+            echo "=== Déploiement backend ==="
+            helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
+          '''
+        }
+      }
+    }
+
+    stage('Verify deployment') {
+      steps {
+        container('kubectl') {
+          sh '''
+            echo "=== Vérification des ressources ==="
+            kubectl get pods -o wide
+            kubectl get svc
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Déploiement réussi !'
+    }
+    failure {
+      container('kubectl') {
+        sh '''
+          echo "Échec du déploiement — logs :"
+          kubectl describe pods || true
+          kubectl logs -l app=todo-frontend --tail=20 || true
+          kubectl logs -l app=todo-backend --tail=20 || true
+        '''
       }
     }
   }
