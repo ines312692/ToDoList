@@ -1,7 +1,6 @@
 pipeline {
   agent {
     kubernetes {
-      defaultContainer 'tools'
       yaml """
 apiVersion: v1
 kind: Pod
