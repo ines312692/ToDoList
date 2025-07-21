@@ -23,21 +23,7 @@ pipeline {
                 container('kubectl') {
                     script {
 
-                        sh '''
-                            set -x  # Enable debug mode
-                            echo "=== Environment Debug ==="
-                            whoami
-                            pwd
-                            echo "PATH: $PATH"
-                            echo "SHELL: $SHELL"
-
-                            echo "=== Available Shells ==="
-                            ls -la /bin/*sh* || true
-                            ls -la /usr/bin/*sh* || true
-
-                            echo "=== Process Info ==="
-                            ps aux || true
-                        '''
+                        sh 'echo "Test dans container kubectl"'
                     }
                 }
             }
