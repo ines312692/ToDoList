@@ -1,21 +1,54 @@
 pipeline {
   agent {
     kubernetes {
-      inheritFrom 'k8s' // Nom de ton podTemplate défini dans Jenkins
-      // Optionnel : tu peux ajouter containers, volumes etc ici si besoin
+      inheritFrom 'k8s'
     }
   }
 
   environment {
-    KUBECONFIG = '/root/.kube/config' // Assure-toi que ce fichier est accessible dans le pod
+    KUBECONFIG = '/root/.kube/config'
   }
 
   stages {
+
+    stage('Configurer RBAC') {
+      steps {
+        container('kubectl') {
+          sh '''
+            echo "=== Création du ServiceAccount et ClusterRoleBinding ==="
+
+            cat <<EOF | kubectl apply -f -
+            apiVersion: v1
+            kind: ServiceAccount
+            metadata:
+              name: jenkins-deployer
+              namespace: default
+            ---
+            apiVersion: rbac.authorization.k8s.io/v1
+            kind: ClusterRoleBinding
+            metadata:
+              name: jenkins-deployer-binding
+            subjects:
+              - kind: ServiceAccount
+                name: jenkins-deployer
+                namespace: default
+            roleRef:
+              kind: ClusterRole
+              name: cluster-admin
+              apiGroup: rbac.authorization.k8s.io
+            EOF
+
+            echo "ServiceAccount jenkins-deployer configuré"
+          '''
+        }
+      }
+    }
+
     stage('Check Tools') {
       steps {
-        container('kubectl') { // Nom du container dans le pod template qui contient kubectl et helm
+        container('kubectl') {
           sh '''
-            echo "=== Versions installées ==="
+            echo "=== Vérification outils ==="
             kubectl version --client
             helm version
           '''
@@ -49,7 +82,7 @@ pipeline {
       steps {
         container('kubectl') {
           sh '''
-            echo "=== Vérification des pods ==="
+            echo "=== Vérification des ressources ==="
             kubectl get pods -o wide
             kubectl get svc
           '''
