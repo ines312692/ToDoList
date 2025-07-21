@@ -1,10 +1,9 @@
 pipeline {
- agent {
-    agent {
-        kubernetes {
-         inheritFrom 'k8s'
-        }
-   }
+  agent {
+    kubernetes {
+      inheritFrom 'k8s'
+    }
+  }
 
   environment {
     KUBECONFIG_PATH = '/home/jenkins/.kube/config'
