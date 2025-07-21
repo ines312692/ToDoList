@@ -2,7 +2,6 @@ pipeline {
   agent {
     kubernetes {
       label 'ks'
-      defaultContainer 'kubectl'
       yaml """
 apiVersion: v1
 kind: Pod
