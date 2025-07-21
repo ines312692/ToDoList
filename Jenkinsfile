@@ -2,69 +2,64 @@ pipeline {
   agent {
     kubernetes {
       inheritFrom 'k8s'
-      defaultContainer 'helm'
-      yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  serviceAccountName: jenkins-deployer
-  containers:
-  - name: helm
-    image: alpine/helm:3.14.0
-    command: ['cat']
-    tty: true
-  - name: kubectl
-    image: bitnami/kubectl:latest
-    command: ['cat']
-    tty: true
-"""
     }
+  }
+
+  environment {
+    KUBECONFIG_PATH = '/home/jenkins/.kube/config'
   }
 
   stages {
 
-    stage('Init RBAC') {
-      steps {
-        container('kubectl') {
-          sh '''
-            echo "Applying RBAC and namespace..."
-            kubectl apply -f k8s/bootstrap/
-          '''
-        }
-      }
-    }
 
-    stage('Deploy Frontend') {
+    stage('Deploy frontend') {
       steps {
         container('helm') {
           sh '''
-            echo "Déploiement frontend"
-            helm upgrade --install todo-frontend ./charts/frontend-chart \
-              -f ./charts/frontend-chart/values.yaml \
-              --namespace todo-app --create-namespace
+            echo "DEBUG: deploy frontend"
+            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
           '''
         }
       }
     }
 
-    stage('Deploy Backend') {
+    stage('Deploy backend') {
       steps {
         container('helm') {
           sh '''
-            echo "Déploiement backend"
-            helm upgrade --install todo-backend ./charts/backend-chart \
-              -f ./charts/backend-chart/values.yaml \
-              --namespace todo-app --create-namespace
+            echo "DEBUG: deploy backend"
+            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
           '''
         }
       }
     }
 
-    stage('Vérification') {
+    stage('Verify deployment') {
       steps {
         container('kubectl') {
-          sh 'kubectl get all -n todo-app'
+          sh '''
+            echo "DEBUG: verify deployment"
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get pods -o wide
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get svc
+          '''
         }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo '=== Déploiement Kubernetes réussi ! ==='
+    }
+    failure {
+      echo '=== Échec du déploiement ==='
+      container('kubectl') {
+        sh '''
+          echo "DEBUG: post failure logs"
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl describe pods || true
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-frontend --tail=20 || true
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-backend --tail=20 || true
+        '''
       }
     }
   }
