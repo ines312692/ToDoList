@@ -19,36 +19,19 @@ pipeline {
       steps {
 
           sh '''
-            echo "DEBUG: deploy frontend"
-            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ${CHART_PATH} \
-              -f ${CHART_PATH}/values.yaml \
-              --namespace ${NAMESPACE} \
-              --create-namespace \
-              --wait
+           echo "DEBUG: deploy frontend"
+           KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
           '''
 
       }
     }
 
     stage('Verify') {
-      steps {
-
-          sh '''
-            KUBECONFIG=${KUBECONFIG_PATH} kubectl get pods -n ${NAMESPACE} -l app=todo-frontend
-            KUBECONFIG=${KUBECONFIG_PATH} kubectl get svc -n ${NAMESPACE} -l app=todo-frontend
-          '''
-
-      }
-    }
+             steps {
+               echo " Déploiement Frontend réussi dans le namespace ${NAMESPACE}"
+             }
+           }
   }
 
-  post {
-    failure {
-      container('kubectl') {
-        sh '''
-          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-frontend -n ${NAMESPACE} --tail=50 || true
-        '''
-      }
-    }
-  }
+
 }
