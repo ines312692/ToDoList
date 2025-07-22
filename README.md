@@ -44,16 +44,14 @@ ToDo List/
 │   │   │   └── service/        # API services
 │   ├── Dockerfile              # Frontend Docker configuration
 │   └── nginx.conf              # Nginx configuration
-│
+│   └── Jenkinsfile 
 ├── To_Do_List_Backend/         # Backend Express application
 │   ├── src/                    # Source code
 │   │   ├── app.js              # Main application file
 │   │   └── data/               # Data storage directory
 │   └── Dockerfile              # Backend Docker configuration
-│
-├── k8s/                        # Kubernetes deployment files
-│   ├── frontend-deployment.yaml # Frontend K8s deployment and service
-│   └── backend-deployment.yaml  # Backend K8s deployment and service
+│   └── Jenkinsfile             # Jenkins pipeline configuration for backend
+
 │
 ├── charts/                     # Helm charts for Kubernetes deployment
 │   ├── frontend-chart/         # Frontend Helm chart
@@ -198,10 +196,16 @@ The application can be deployed using the included Jenkins pipeline:
 
 1. Configure Jenkins with appropriate Kubernetes access
 2. Create a new pipeline job pointing to the repository
-3. The pipeline will:
-    - Prepare the Kubernetes configuration
-    - Deploy the frontend and backend applications using Helm charts
-    - Verify the deployment by checking pods and services
+3. Set up separate Jenkins jobs for frontend and backend deployment:
+   - `todo-frontend-job`: Responsible for deploying the frontend application
+   - `todo-backend-job`: Responsible for deploying the backend application
+4. The main pipeline will:
+   - Run in a Kubernetes environment with the 'jenkins-master' label
+   - Use the 'jenkins-deployer' service account in the 'default' namespace
+   - Deploy to the 'jenkins-developer' namespace
+   - Execute frontend and backend deployment jobs in parallel
+   - Provide a summary of all deployed resources
+   - Display detailed error information in case of failure
 
 ### Docker Compose Deployment
 While the current Jenkins pipeline focuses on Helm chart deployment, Docker Compose provides an alternative method for simpler deployments. This could be implemented as an additional deployment option in the pipeline.
@@ -226,3 +230,34 @@ The Helm charts provide several benefits:
 ## Data Persistence
 
 Task and user data is stored in a JSON file within a Docker volume, ensuring data persistence across container restarts.
+
+## Health Checks and Monitoring
+
+The application includes built-in health check mechanisms to ensure service availability:
+
+### Backend Health Check
+- The backend service exposes a `/health` endpoint that returns the service status
+- In Docker Compose deployment, a health check is configured to:
+  - Test the endpoint every 30 seconds
+  - Timeout after 10 seconds
+  - Retry up to 3 times before marking the service as unhealthy
+
+### Monitoring
+- The Jenkins pipeline includes a summary stage that displays all Kubernetes resources in the deployment namespace
+- In case of deployment failure, the pipeline automatically retrieves the most recent Kubernetes events to aid in troubleshooting
+
+## Project Status and Roadmap
+
+### Current Status
+This project is currently operational and includes all the core functionality described in the features section. The application has been containerized and can be deployed using Docker Compose, Kubernetes, or Helm charts.
+
+### Future Improvements
+Potential enhancements for future versions:
+- Implement user authentication and authorization
+- Add task categories and priority levels
+- Implement task search and filtering capabilities
+- Add email notifications for task due dates
+- Enhance the UI with responsive design for mobile devices
+- Implement a database backend instead of file-based storage
+- Add comprehensive test coverage
+- Set up automated testing in the CI/CD pipeline
