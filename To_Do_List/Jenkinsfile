@@ -2,6 +2,7 @@ pipeline {
   agent {
     kubernetes {
       label 'jenkins-frontend'
+      defaultContainer 'helm'
       namespace 'default'
       serviceAccount 'jenkins-deployer'
     }
