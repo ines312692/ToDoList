@@ -15,7 +15,7 @@ pipeline {
   stages {
     stage('Deploy Frontend') {
       steps {
-        container('helm') {
+
           sh '''
             echo "Déploiement Frontend"
             helm upgrade --install todo-frontend $CHART_PATH \
@@ -23,27 +23,27 @@ pipeline {
               --create-namespace \
               --wait
           '''
-        }
+
       }
     }
 
     stage('Verify') {
       steps {
-        container('kubectl') {
+
           sh '''
             kubectl get pods -n $NAMESPACE -l app=todo-frontend
             kubectl get svc -n $NAMESPACE -l app=todo-frontend
           '''
-        }
+
       }
     }
   }
 
   post {
     failure {
-      container('kubectl') {
+
         sh 'kubectl logs -l app=todo-frontend -n $NAMESPACE --tail=50 || true'
-      }
+
     }
   }
 }
