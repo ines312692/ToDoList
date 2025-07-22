@@ -3,7 +3,7 @@ pipeline {
     kubernetes {
       label 'jenkins-frontend'
       defaultContainer 'helm'
-      namespace 'default'
+      namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
     }
   }
@@ -20,7 +20,7 @@ pipeline {
 
           sh '''
            echo "DEBUG: deploy frontend"
-           KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml
+           KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml --namespace jenkins-developer
           '''
 
       }
