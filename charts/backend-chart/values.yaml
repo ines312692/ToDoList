@@ -43,7 +43,7 @@ env:
 
 # Persistent Volume (if needed for data storage)
 persistence:
-  enabled: false
+  enabled: true
   storageClass: ""
   accessMode: ReadWriteOnce
   size: 1Gi
