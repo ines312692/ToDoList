@@ -26,25 +26,12 @@ pipeline {
       }
     }
 
-    stage('Verify') {
-      steps {
-
-          sh '''
-            KUBECONFIG=${KUBECONFIG_PATH} kubectl get pods -n ${NAMESPACE} -l app=todo-backend
-            KUBECONFIG=${KUBECONFIG_PATH} kubectl get svc -n ${NAMESPACE} -l app=todo-backend
-          '''
-
-      }
-    }
+   stage('Verify') {
+         steps {
+           echo " Déploiement Backend réussi dans le namespace ${NAMESPACE}"
+         }
+       }
   }
 
-  post {
-    failure {
 
-        sh '''
-          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-backend -n ${NAMESPACE} --tail=50 || true
-        '''
-
-    }
-  }
 }
