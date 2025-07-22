@@ -9,6 +9,7 @@ pipeline {
   }
 
   environment {
+    KUBECONFIG_PATH = '/home/jenkins/.kube/config'
     CHART_PATH = './charts/backend-chart'
     NAMESPACE = 'jenkins-developer'
   }
@@ -16,35 +17,38 @@ pipeline {
   stages {
     stage('Deploy Backend') {
       steps {
-        container('helm') {
+
           sh '''
-            echo "Déploiement Backend "
-            helm upgrade --install todo-backend $CHART_PATH \
-              --namespace $NAMESPACE \
+            echo "DEBUG: deploy backend"
+            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-backend ${CHART_PATH} \
+              -f ${CHART_PATH}/values.yaml \
+              --namespace ${NAMESPACE} \
               --create-namespace \
               --wait
           '''
-        }
+
       }
     }
 
     stage('Verify') {
       steps {
-        container('kubectl') {
+
           sh '''
-            kubectl get pods -n $NAMESPACE -l app=todo-backend
-            kubectl get svc -n $NAMESPACE -l app=todo-backend
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get pods -n ${NAMESPACE} -l app=todo-backend
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get svc -n ${NAMESPACE} -l app=todo-backend
           '''
-        }
+
       }
     }
   }
 
   post {
     failure {
-      container('kubectl') {
-        sh 'kubectl logs -l app=todo-backend -n $NAMESPACE --tail=50 || true'
-      }
+
+        sh '''
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-backend -n ${NAMESPACE} --tail=50 || true
+        '''
+
     }
   }
 }

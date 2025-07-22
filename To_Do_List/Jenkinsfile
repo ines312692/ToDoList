@@ -9,6 +9,7 @@ pipeline {
   }
 
   environment {
+    KUBECONFIG_PATH = '/home/jenkins/.kube/config'
     CHART_PATH = './charts/frontend-chart'
     NAMESPACE = 'jenkins-developer'
   }
@@ -18,9 +19,10 @@ pipeline {
       steps {
 
           sh '''
-            echo "Déploiement Frontend"
-            helm upgrade --install todo-frontend $CHART_PATH \
-              --namespace $NAMESPACE \
+            echo "DEBUG: deploy frontend"
+            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ${CHART_PATH} \
+              -f ${CHART_PATH}/values.yaml \
+              --namespace ${NAMESPACE} \
               --create-namespace \
               --wait
           '''
@@ -32,8 +34,8 @@ pipeline {
       steps {
 
           sh '''
-            kubectl get pods -n $NAMESPACE -l app=todo-frontend
-            kubectl get svc -n $NAMESPACE -l app=todo-frontend
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get pods -n ${NAMESPACE} -l app=todo-frontend
+            KUBECONFIG=${KUBECONFIG_PATH} kubectl get svc -n ${NAMESPACE} -l app=todo-frontend
           '''
 
       }
@@ -42,9 +44,11 @@ pipeline {
 
   post {
     failure {
-
-        sh 'kubectl logs -l app=todo-frontend -n $NAMESPACE --tail=50 || true'
-
+      container('kubectl') {
+        sh '''
+          KUBECONFIG=${KUBECONFIG_PATH} kubectl logs -l app=todo-frontend -n ${NAMESPACE} --tail=50 || true
+        '''
+      }
     }
   }
 }
