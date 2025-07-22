@@ -1,77 +1,77 @@
 # charts/backend-chart/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: apps/v1 # Version de l'API Kubernetes utilisée pour le déploiement
+kind: Deployment # Type d'objet Kubernetes, ici un déploiement
 metadata:
-  name: {{ .Values.app.name }}
+  name: {{ .Values.app.name }} # Nom du déploiement, défini par la valeur app.name
   labels:
-    app: {{ .Values.app.name }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app: {{ .Values.app.name }} # Label d'application
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }} # Label du chart et sa version
+    release: {{ .Release.Name }} # Nom de la release Helm
+    heritage: {{ .Release.Service }} # Service d'origine de la release
 spec:
-  replicas: {{ .Values.deployment.replicaCount }}
+  replicas: {{ .Values.deployment.replicaCount }} # Nombre de réplicas du pod
   selector:
     matchLabels:
-      app: {{ .Values.app.name }}
-      release: {{ .Release.Name }}
+      app: {{ .Values.app.name }} # Sélectionne les pods avec ce label
+      release: {{ .Release.Name }} # Sélectionne les pods de cette release
   template:
     metadata:
       labels:
-        app: {{ .Values.app.name }}
-        release: {{ .Release.Name }}
+        app: {{ .Values.app.name }} # Label d'application pour le pod
+        release: {{ .Release.Name }} # Label de release pour le pod
     spec:
       {{- if .Values.serviceAccount.name }}
-      serviceAccountName: {{ .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name }} # Utilise un service account si défini
       {{- end }}
       containers:
-        - name: {{ .Values.app.name }}
-          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
-          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+        - name: {{ .Values.app.name }} # Nom du conteneur
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}" # Image Docker à utiliser
+          imagePullPolicy: {{ .Values.app.image.pullPolicy }} # Politique de récupération de l'image
           ports:
-            - name: http
-              containerPort: {{ .Values.app.targetPort }}
-              protocol: TCP
+            - name: http # Nom du port exposé
+              containerPort: {{ .Values.app.targetPort }} # Port du conteneur
+              protocol: TCP # Protocole utilisé
           env:
-            - name: NODE_ENV
-              value: {{ .Values.env.NODE_ENV | quote }}
-            - name: PORT
-              value: {{ .Values.env.PORT | quote }}
-          livenessProbe:
+            - name: NODE_ENV # Variable d'environnement NODE_ENV
+              value: {{ .Values.env.NODE_ENV | quote }} # Valeur de NODE_ENV
+            - name: PORT # Variable d'environnement PORT
+              value: {{ .Values.env.PORT | quote }} # Valeur de PORT
+          livenessProbe: # Probe pour vérifier que le conteneur est vivant
             httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            failureThreshold: 3
-          readinessProbe:
+              path: /health # Chemin de vérification
+              port: http # Port utilisé pour la probe
+            initialDelaySeconds: 30 # Délai initial avant la première vérification
+            periodSeconds: 10 # Fréquence des vérifications
+            failureThreshold: 3 # Nombre d'échecs avant redémarrage
+          readinessProbe: # Probe pour vérifier que le conteneur est prêt
             httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            failureThreshold: 3
+              path: /health # Chemin de vérification
+              port: http # Port utilisé pour la probe
+            initialDelaySeconds: 5 # Délai initial avant la première vérification
+            periodSeconds: 5 # Fréquence des vérifications
+            failureThreshold: 3 # Nombre d'échecs avant marquer le pod comme non prêt
           resources:
-            {{- toYaml .Values.deployment.resources | nindent 12 }}
+            {{- toYaml .Values.deployment.resources | nindent 12 }} # Limites et requêtes de ressources
           {{- if .Values.persistence.enabled }}
           volumeMounts:
-            - name: data-storage
-              mountPath: /app/data
+            - name: data-storage # Nom du volume monté
+              mountPath: /app/data # Chemin de montage dans le conteneur
           {{- end }}
       {{- if .Values.persistence.enabled }}
       volumes:
-        - name: data-storage
+        - name: data-storage # Définition du volume
           persistentVolumeClaim:
-            claimName: {{ .Values.app.name }}-pvc
+            claimName: {{ .Values.app.name }}-pvc # Nom du PVC à utiliser
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }} # Sélection des nœuds selon les labels
       {{- end }}
       {{- with .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }} # Affinité pour la planification des pods
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }} # Tolérances pour la planification des pods
       {{- end }}
