@@ -4,9 +4,9 @@
 app:
   name: todo-frontend
   image:
-    repository: todo-frontend
+    repository: inestmimi123/todo-frontend
     tag: latest
-    pullPolicy: IfNotPresent
+
   
   port: 80
   targetPort: 80

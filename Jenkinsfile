@@ -3,48 +3,49 @@ pipeline {
     kubernetes {
       label 'jenkins-master'
       defaultContainer 'kubectl'
-      namespace 'default'
+      namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
     }
   }
 
   environment {
-    NAMESPACE = 'jenkins-developer'
-    FRONTEND_JOB = 'todo-frontend-job'
-    BACKEND_JOB = 'todo-backend-job'
+    FRONTEND_BUILD_JOB = 'frontend-build'
+    BACKEND_BUILD_JOB = 'backend-build'
+    FRONTEND_DEPLOY_JOB = 'frontend-deploy'
+    BACKEND_DEPLOY_JOB = 'backend-deploy'
   }
 
   stages {
-
-
-    stage('Deploy Apps') {
+    stage('Build Frontend and Backend') {
       parallel {
-        stage('Frontend') {
+        stage('Build Frontend') {
           steps {
-            script {
-              echo " Déploiement Frontend..."
-              build job: "${FRONTEND_JOB}", wait: true
-            }
+            echo "Lancement du build frontend"
+            build job: "${FRONTEND_BUILD_JOB}", wait: true
           }
         }
-        stage('Backend') {
+        stage('Build Backend') {
           steps {
-            script {
-              echo "Déploiement Backend..."
-              build job: "${BACKEND_JOB}", wait: true
-            }
+            echo "Lancement du build backend"
+            build job: "${BACKEND_BUILD_JOB}", wait: true
           }
         }
       }
     }
 
-    stage('Summary') {
-      steps {
-        container('kubectl') {
-          sh '''
-            echo "=== Résumé ==="
-            kubectl get all -n default
-          '''
+    stage('Deploy Frontend and Backend') {
+      parallel {
+        stage('Deploy Frontend') {
+          steps {
+            echo "Lancement du déploiement frontend"
+            build job: "${FRONTEND_DEPLOY_JOB}", wait: true
+          }
+        }
+        stage('Deploy Backend') {
+          steps {
+            echo "Lancement du déploiement backend"
+            build job: "${BACKEND_DEPLOY_JOB}", wait: true
+          }
         }
       }
     }
@@ -52,11 +53,10 @@ pipeline {
 
   post {
     success {
-      echo "Déploiement réussi!"
+      echo "Pipeline complet réussi : Build + Deploy"
     }
     failure {
-      echo "Échec du déploiement"
-
+      echo "Échec dans le pipeline"
     }
   }
 }

@@ -26,7 +26,7 @@ spec:
       containers:
         - name: {{ .Values.app.name }} # Nom du conteneur
           image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}" # Image Docker à utiliser
-          imagePullPolicy: {{ .Values.app.image.pullPolicy }} # Politique de récupération de l'image
+
           ports:
             - name: http # Nom du port exposé
               containerPort: {{ .Values.app.targetPort }} # Port du conteneur

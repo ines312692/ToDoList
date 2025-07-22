@@ -1,0 +1,56 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'jenkins-frontend-build'
+      defaultContainer 'docker'
+      namespace 'jenkins-developer'
+      serviceAccount 'jenkins-deployer'
+
+    }
+  }
+
+  environment {
+    DOCKERHUB_USERNAME = 'inesdev'
+    DOCKERHUB_IMAGE = 'todo-frontend'
+    IMAGE_TAG = 'latest'
+  }
+
+  stages {
+    stage('Docker Login') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+          sh '''
+            echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
+          '''
+        }
+      }
+    }
+
+    stage('Build Frontend Image') {
+      steps {
+        dir('To_Do_List') {
+          sh '''
+            docker build -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG .
+          '''
+        }
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        sh '''
+          docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "Frontend image pushed successfully to Docker Hub!"
+    }
+    failure {
+      echo "Build or push failed."
+    }
+  }
+}
