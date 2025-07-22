@@ -3,7 +3,7 @@ pipeline {
     kubernetes {
       label 'jenkins-backend'
       defaultContainer 'helm'
-      namespace 'default'
+      namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
     }
   }
@@ -20,7 +20,7 @@ pipeline {
 
           sh '''
             echo "DEBUG: deploy backend"
-            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml
+            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-backend ./charts/backend-chart  -f ./charts/backend-chart/values.yaml --namespace jenkins-developer
           '''
 
       }

@@ -14,7 +14,7 @@ app:
 # Service Account configuration
 serviceAccount:
   create: false
-  name: default
+  name: jenkins-deployer
   # Annotations to add to the service account
   annotations: {}
 

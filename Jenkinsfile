@@ -40,12 +40,12 @@ pipeline {
 
     stage('Summary') {
       steps {
-
+        container('kubectl') {
           sh '''
             echo "=== Résumé ==="
-            kubectl get all -n $NAMESPACE
+            kubectl get all -n default
           '''
-
+        }
       }
     }
   }
@@ -56,8 +56,6 @@ pipeline {
     }
     failure {
       echo "Échec du déploiement"
-
-        sh 'kubectl get events -n $NAMESPACE --sort-by=.lastTimestamp | tail -10'
 
     }
   }
