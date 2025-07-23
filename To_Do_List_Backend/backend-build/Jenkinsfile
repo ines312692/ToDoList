@@ -26,7 +26,7 @@ pipeline {
       }
     }
 
-    stage('Build Frontend Image') {
+    stage('Build Backend Image') {
       steps {
         dir('To_Do_List') {
           sh '''
@@ -47,7 +47,7 @@ pipeline {
 
   post {
     success {
-      echo "Frontend image pushed successfully to Docker Hub!"
+      echo "Backend image pushed successfully to Docker Hub!"
     }
     failure {
       echo "Build or push failed."
