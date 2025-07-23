@@ -5,7 +5,6 @@ pipeline {
       defaultContainer 'docker'
       namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
-
     }
   }
 
@@ -21,7 +20,7 @@ pipeline {
       steps {
         script {
           sh '''
-            echo "Using persistent workspace at /workspace"
+            echo "Using persistent workspace at /workspace/backend-build"
             mkdir -p /workspace/backend-build
             cp -r . /workspace/backend-build/ || true
           '''
@@ -41,7 +40,7 @@ pipeline {
 
     stage('Build Backend Image') {
       steps {
-        dir('To_Do_List') {
+        dir('To_Do_List_Backend') {
           sh '''
             echo "Building with Docker cache from PVC..."
             docker build \
