@@ -10,6 +10,6 @@ COPY src/ ./src/
 # Créer le répertoire pour les données
 RUN mkdir -p /app/data
 
-EXPOSE 3001
+EXPOSE 3000
 
 CMD ["npm", "start"]

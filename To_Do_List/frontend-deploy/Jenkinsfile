@@ -9,7 +9,6 @@ pipeline {
   }
 
   environment {
-    KUBECONFIG_PATH = '/home/jenkins/.kube/config'
     CHART_PATH = './charts/frontend-chart'
     NAMESPACE = 'jenkins-developer'
   }
@@ -20,7 +19,7 @@ pipeline {
 
           sh '''
            echo "DEBUG: deploy frontend"
-           KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml --namespace jenkins-developer
+           helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml --namespace jenkins-developer
           '''
 
       }

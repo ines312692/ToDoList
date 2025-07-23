@@ -9,7 +9,6 @@ pipeline {
   }
 
   environment {
-    KUBECONFIG_PATH = '/home/jenkins/.kube/config'
     CHART_PATH = './charts/backend-chart'
     NAMESPACE = 'jenkins-developer'
   }
