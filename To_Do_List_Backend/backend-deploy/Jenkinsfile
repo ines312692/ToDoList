@@ -20,7 +20,7 @@ pipeline {
 
           sh '''
             echo "DEBUG: deploy backend"
-            KUBECONFIG=${KUBECONFIG_PATH} helm upgrade --install todo-backend ./charts/backend-chart  -f ./charts/backend-chart/values.yaml --namespace jenkins-developer
+            helm upgrade --install todo-backend ./charts/backend-chart  -f ./charts/backend-chart/values.yaml --namespace jenkins-developer
           '''
 
       }
