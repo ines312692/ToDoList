@@ -1,0 +1,33 @@
+# infrastructure/persistent-volumes.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: todo-backend-data-pvc
+  namespace: jenkins-developer
+  labels:
+    app: todo-backend
+    component: storage
+    managed-by: infrastructure
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: fast-ssd  # Optionnel
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: todo-frontend-cache-pvc
+  namespace: jenkins-developer
+  labels:
+    app: todo-frontend
+    component: storage
+    managed-by: infrastructure
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

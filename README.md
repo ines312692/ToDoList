@@ -44,14 +44,21 @@ ToDo List/
 │   │   │   └── service/        # API services
 │   ├── Dockerfile              # Frontend Docker configuration
 │   └── nginx.conf              # Nginx configuration
-│   └── Jenkinsfile 
+│   ├── frontend-build/                  
+│   │   |── Jenkinsfile             
+├   |── frontend-deploy/                    
+│   │   ├── Jenkinsfile             
+│   │  
 ├── To_Do_List_Backend/         # Backend Express application
 │   ├── src/                    # Source code
 │   │   ├── app.js              # Main application file
 │   │   └── data/               # Data storage directory
 │   └── Dockerfile              # Backend Docker configuration
-│   └── Jenkinsfile             # Jenkins pipeline configuration for backend
-
+│   ├── backend-build/                   
+│   │   |── Jenkinsfile             
+├   |── backend-deploy/                    
+│   │   ├── Jenkinsfile             
+│   │ 
 │
 ├── charts/                     # Helm charts for Kubernetes deployment
 │   ├── frontend-chart/         # Frontend Helm chart
@@ -194,18 +201,38 @@ The backend provides the following RESTful API endpoints:
 
 The application can be deployed using the included Jenkins pipeline:
 
-1. Configure Jenkins with appropriate Kubernetes access
+1. Configure Jenkins with the appropriate Kubernetes access
 2. Create a new pipeline job pointing to the repository
-3. Set up separate Jenkins jobs for frontend and backend deployment:
-   - `todo-frontend-job`: Responsible for deploying the frontend application
-   - `todo-backend-job`: Responsible for deploying the backend application
+3. Set up separate Jenkins jobs for frontend and backend build and deployment:
+   - `frontend-build`: Builds the frontend Docker image and pushes it to Docker Hub
+   - `backend-build`: Builds the backend Docker image and pushes it to Docker Hub
+   - `frontend-deploy`: Deploys the frontend application using Helm
+   - `backend-deploy`: Deploys the backend application using Helm
 4. The main pipeline will:
    - Run in a Kubernetes environment with the 'jenkins-master' label
    - Use the 'jenkins-deployer' service account in the 'default' namespace
    - Deploy to the 'jenkins-developer' namespace
+   - Execute frontend and backend build jobs in parallel
    - Execute frontend and backend deployment jobs in parallel
    - Provide a summary of all deployed resources
    - Display detailed error information in case of failure
+
+### CI/CD Pipeline Details
+
+The CI/CD pipeline consists of several stages:
+
+#### Build Stage
+- Builds Docker images for both frontend and backend applications
+- Authenticates with Docker Hub using credentials stored in Jenkins
+- Pushes the built images to Docker Hub under the repository `inestmimi123/todo-frontend` and `inestmimi123/todo-backend`
+- Images are tagged with 'latest' by default
+
+#### Deploy Stage
+- Uses Helm to deploy the applications to a Kubernetes cluster
+- Deploys to the 'jenkins-developer' namespace
+- Uses the Helm charts located in the `charts/` directory
+
+Note: Some log messages in the Jenkins pipeline may appear in French.
 
 ### Docker Compose Deployment
 While the current Jenkins pipeline focuses on Helm chart deployment, Docker Compose provides an alternative method for simpler deployments. This could be implemented as an additional deployment option in the pipeline.
@@ -216,20 +243,44 @@ For more scalable and robust deployments, the application can be deployed to a K
 1. The Jenkins pipeline uses the configured Kubernetes credentials (configminikube)
 2. It prepares the kubeconfig file for Kubernetes access
 3. It deploys the application using Helm charts:
-   - Deploys the frontend using `helm upgrade --install todo-frontend ./charts/frontend-chart`
-   - Deploys the backend using `helm upgrade --install todo-backend ./charts/backend-chart`
+   - Deploys the frontend using `helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml --namespace jenkins-developer`
+   - Deploys the backend using `helm upgrade --install todo-backend ./charts/backend-chart -f ./charts/backend-chart/values.yaml --namespace jenkins-developer`
 4. The Helm charts manage the Kubernetes resources (deployments, services, etc.)
 5. The application is then accessible through the Kubernetes service
+
+#### Helm Chart Configuration
+
+The Helm charts are configured with the following key settings:
+
+**Backend Chart:**
+- Image: `inestmimi123/todo-backend:latest`
+- Service: ClusterIP on port 3000
+- Persistence: Enabled with a 1Gi volume for data storage
+- Resources:
+  - Limits: 500m CPU, 512Mi memory
+  - Requests: 250m CPU, 256Mi memory
+- Service Account: Uses 'jenkins-deployer'
+
+**Frontend Chart:**
+- Image: `inestmimi123/todo-frontend:latest`
+- Service: ClusterIP on port 80
+- No persistence required
 
 The Helm charts provide several benefits:
 - Templated Kubernetes manifests for easier configuration
 - Version control of deployments
 - Simplified rollbacks
 - Environment-specific configurations using values files
+- Resource management and scaling capabilities
 
 ## Data Persistence
 
-Task and user data is stored in a JSON file within a Docker volume, ensuring data persistence across container restarts.
+Task and user data is stored in a JSON file within a persistent storage volume, ensuring data persistence across container restarts:
+
+- In Docker Compose deployment: Uses a Docker volume
+- In Kubernetes deployment: Uses a Persistent Volume Claim (PVC) with 1Gi storage
+  - The backend Helm chart configures a PVC with ReadWriteOnce access mode
+  - This ensures that task and user data is preserved even if the backend pod is rescheduled or restarted
 
 ## Health Checks and Monitoring
 
@@ -251,6 +302,8 @@ The application includes built-in health check mechanisms to ensure service avai
 ### Current Status
 This project is currently operational and includes all the core functionality described in the features section. The application has been containerized and can be deployed using Docker Compose, Kubernetes, or Helm charts.
 
+The CI/CD pipeline is fully functional, with separate build and deployment stages for both frontend and backend components. Docker images are automatically built and pushed to Docker Hub, and deployment to Kubernetes is handled through Helm charts.
+
 ### Future Improvements
 Potential enhancements for future versions:
 - Implement user authentication and authorization
@@ -261,3 +314,6 @@ Potential enhancements for future versions:
 - Implement a database backend instead of file-based storage
 - Add comprehensive test coverage
 - Set up automated testing in the CI/CD pipeline
+- Implement horizontal scaling for the backend service
+- Add monitoring and alerting using Prometheus and Grafana
+- Implement a more sophisticated ingress configuration with TLS
