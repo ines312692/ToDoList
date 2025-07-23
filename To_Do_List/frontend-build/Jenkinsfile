@@ -5,7 +5,6 @@ pipeline {
       defaultContainer 'docker'
       namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
-
     }
   }
 
@@ -13,9 +12,27 @@ pipeline {
     DOCKERHUB_USERNAME = 'inestmimi123'
     DOCKERHUB_IMAGE = 'todo-frontend'
     IMAGE_TAG = 'latest'
+    DOCKER_BUILDKIT = '1'
   }
 
   stages {
+    stage('Checkout & Cache Preparation') {
+      steps {
+        script {
+          sh '''
+            echo "Preparing persistent workspace and caches..."
+            mkdir -p /workspace/frontend-build
+            mkdir -p /workspace/node_modules_cache
+            cp -r . /workspace/frontend-build/ || true
+            if [ -d "/workspace/node_modules_cache" ]; then
+              echo "Restoring node_modules cache..."
+              cp -r /workspace/node_modules_cache/* ./To_Do_List/node_modules/ 2>/dev/null || true
+            fi
+          '''
+        }
+      }
+    }
+
     stage('Docker Login') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
@@ -30,7 +47,18 @@ pipeline {
       steps {
         dir('To_Do_List') {
           sh '''
-            docker build -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG .
+            echo "Building frontend with Docker cache from PVC..."
+            docker build \
+              --cache-from $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
+              -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
+              .
+
+            echo "Extracting node_modules for cache..."
+            docker create --name temp-container $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
+            docker cp temp-container:/app/node_modules /workspace/node_modules_cache/ 2>/dev/null || true
+            docker rm temp-container
           '''
         }
       }
@@ -39,15 +67,32 @@ pipeline {
     stage('Push to Docker Hub') {
       steps {
         sh '''
+          echo "Pushing images..."
           docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
+          docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache
+        '''
+      }
+    }
+
+    stage('Cache Cleanup') {
+      steps {
+        sh '''
+          echo "Cleaning up old Docker images..."
+          docker system prune -f --filter "until=24h"
         '''
       }
     }
   }
 
   post {
+    always {
+      sh '''
+        echo "Saving build artifacts to persistent storage..."
+        cp -r . /workspace/frontend-build-$(date +%Y%m%d-%H%M%S)/ || true
+      '''
+    }
     success {
-      echo "Frontend image pushed successfully to Docker Hub!"
+      echo "Frontend image built and pushed successfully with persistent cache!"
     }
     failure {
       echo "Build or push failed."

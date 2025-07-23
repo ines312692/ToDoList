@@ -25,10 +25,6 @@ pipeline {
       }
     }
 
-    stage('Verify') {
-             steps {
-               echo " Déploiement Frontend réussi dans le namespace ${NAMESPACE}"
-             }
-           }
+
   }
 }

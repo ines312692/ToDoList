@@ -6,19 +6,17 @@ app:
   port: 80
   targetPort: 80
 
-# Service Account configuration
 serviceAccount:
   create: false
   name: jenkins-deployer
   annotations: {}
 
-# Service configuration
 service:
   type: ClusterIP
   port: 80
   targetPort: 80
 
-# Deployment configuration
+
 deployment:
   replicaCount: 1
   resources:
@@ -29,15 +27,11 @@ deployment:
       cpu: 250m
       memory: 256Mi
 
-# Persistent Volume - RÉFÉRENCE À UN PVC EXISTANT
 persistence:
-  enabled: true
-  # NOM DU PVC PRÉ-CRÉÉ (ne crée plus de PVC)
+  enabled: false
   existingClaim: "todo-frontend-cache-pvc"
-  # Chemin de montage pour le cache nginx
   mountPath: "/var/cache/nginx"
 
-# Ingress configuration (optional)
 ingress:
   enabled: false
   className: ""
@@ -49,7 +43,7 @@ ingress:
           pathType: Prefix
   tls: []
 
-# Node selector, tolerations and affinity
+
 nodeSelector: {}
 tolerations: []
 affinity: {}

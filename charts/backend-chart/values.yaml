@@ -38,7 +38,7 @@ env:
 
 #--------------------------------------------
 persistence:
-  enabled: true
+  enabled: false
   existingClaim: "todo-backend-data-pvc"
   mountPath: "/app/data"
 #---------------------------------------------------------

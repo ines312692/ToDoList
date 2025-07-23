@@ -1,33 +1,56 @@
-# infrastructure/persistent-volumes.yaml
+# jenkins-build-pvcs.yaml
+# PVC pour le cache Docker partagé entre les builds
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: todo-backend-data-pvc
+  name: jenkins-docker-cache-pvc
   namespace: jenkins-developer
-  labels:
-    app: todo-backend
-    component: storage
-    managed-by: infrastructure
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard  # Ajustez selon votre classe de stockage
+---
+# PVC pour les workspaces Jenkins
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-workspace-pvc
+  namespace: jenkins-developer
+spec:
+  accessModes:
+    - ReadWriteMany  # Pour permettre le partage entre plusieurs builds
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+# PVC pour le cache node_modules (frontend)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-node-modules-pvc
+  namespace: jenkins-developer
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
-
+  storageClassName: standard
 ---
+# PVC pour les artefacts de build (optionnel)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: todo-frontend-cache-pvc
+  name: jenkins-build-artifacts-pvc
   namespace: jenkins-developer
-  labels:
-    app: todo-frontend
-    component: storage
-    managed-by: infrastructure
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
-      storage: 1Gi
+      storage: 15Gi
+  storageClassName: standard
