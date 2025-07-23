@@ -1,24 +1,15 @@
-# charts/frontend-chart/values.yaml
-
-# Application settings
 app:
   name: todo-frontend
   image:
     repository: inestmimi123/todo-frontend
     tag: latest
-
-  
   port: 80
   targetPort: 80
 
 # Service Account configuration
 serviceAccount:
-  # Specifies whether a service account should be created
   create: false
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
   name: jenkins-deployer
-  # Annotations to add to the service account
   annotations: {}
 
 # Service configuration
@@ -30,7 +21,6 @@ service:
 # Deployment configuration
 deployment:
   replicaCount: 1
-  
   resources:
     limits:
       cpu: 500m
@@ -39,13 +29,13 @@ deployment:
       cpu: 250m
       memory: 256Mi
 
-
+# Persistent Volume - RÉFÉRENCE À UN PVC EXISTANT
 persistence:
   enabled: true
-  storageClass: ""
-  accessMode: ReadWriteOnce
-  size: 1Gi
-
+  # NOM DU PVC PRÉ-CRÉÉ (ne crée plus de PVC)
+  existingClaim: "todo-frontend-cache-pvc"
+  # Chemin de montage pour le cache nginx
+  mountPath: "/var/cache/nginx"
 
 # Ingress configuration (optional)
 ingress:

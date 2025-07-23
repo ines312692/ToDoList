@@ -25,35 +25,58 @@ spec:
       containers:
         - name: {{ .Values.app.name }}
           image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
-
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: {{ .Values.app.targetPort }}
               protocol: TCP
+          # Variables d'environnement pour le frontend
+          env:
+            - name: NGINX_PORT
+              value: {{ .Values.app.port | quote }}
+            # URL du backend pour les appels API
+            - name: BACKEND_API_URL
+              value: "http://todo-backend:3000/api"
+            # Chemin vers le cache nginx si nécessaire
+            {{- if .Values.persistence.enabled }}
+            - name: NGINX_CACHE_PATH
+              value: {{ .Values.persistence.mountPath | quote }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /
               port: http
             initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /
               port: http
             initialDelaySeconds: 5
             periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.deployment.resources | nindent 12 }}
           {{- if .Values.persistence.enabled }}
           volumeMounts:
-            - name: data-storage
-              mountPath: /app/data
+            - name: cache-storage
+              mountPath: {{ .Values.persistence.mountPath }}
+              # Sous-répertoire pour éviter les conflits
+              subPath: frontend-cache
+            # Volume pour les logs nginx (optionnel)
+            - name: cache-storage
+              mountPath: /var/log/nginx
+              subPath: nginx-logs
           {{- end }}
       {{- if .Values.persistence.enabled }}
       volumes:
-        - name: data-storage
+        - name: cache-storage
           persistentVolumeClaim:
-            claimName: {{ .Values.app.name }}-pvc
+            # Utilise le PVC pré-créé au lieu de créer un nouveau
+            claimName: {{ .Values.persistence.existingClaim }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

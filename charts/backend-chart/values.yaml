@@ -44,9 +44,9 @@ env:
 # Persistent Volume (if needed for data storage)
 persistence:
   enabled: true
-  storageClass: ""
-  accessMode: ReadWriteOnce
-  size: 1Gi
+  # NE CRÉÉ PLUS LE PVC, RÉFÉRENCE UN EXISTANT
+  existingClaim: "todo-backend-data-pvc"
+  mountPath: "/app/data"
 
 # Ingress configuration (optional)
 ingress:
