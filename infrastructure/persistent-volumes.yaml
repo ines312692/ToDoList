@@ -14,7 +14,7 @@ spec:
   resources:
     requests:
       storage: 5Gi
-  # storageClassName: fast-ssd  # Optionnel
+
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

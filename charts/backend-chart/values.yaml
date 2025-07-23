@@ -11,20 +11,16 @@ app:
   port: 3000
   targetPort: 3000
 
-# Service Account configuration
 serviceAccount:
   create: false
   name: jenkins-deployer
-  # Annotations to add to the service account
   annotations: {}
 
-# Service configuration
 service:
   type: ClusterIP
   port: 3000
   targetPort: 3000
 
-# Deployment configuration
 deployment:
   replicaCount: 1
   
@@ -36,19 +32,17 @@ deployment:
       cpu: 250m
       memory: 256Mi
 
-# Environment variables
 env:
   NODE_ENV: production
   PORT: 3000
 
-# Persistent Volume (if needed for data storage)
+#--------------------------------------------
 persistence:
   enabled: true
-  # NE CRÉÉ PLUS LE PVC, RÉFÉRENCE UN EXISTANT
   existingClaim: "todo-backend-data-pvc"
   mountPath: "/app/data"
+#---------------------------------------------------------
 
-# Ingress configuration (optional)
 ingress:
   enabled: false
   className: ""
@@ -60,7 +54,6 @@ ingress:
           pathType: Prefix
   tls: []
 
-# Node selector, tolerations and affinity
 nodeSelector: {}
 tolerations: []
 affinity: {}

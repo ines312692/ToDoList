@@ -5,18 +5,32 @@ pipeline {
       defaultContainer 'kubectl'
       namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: slave
+spec:
+  containers:
+  - name: kubectl
+    image: lachlanevenson/k8s-kubectl:v1.27.4
+    command:
+      - cat
+    tty: true
+  - name: jnlp
+    image: jenkins/inbound-agent:latest
+    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_NAME)']
+"""
     }
   }
 
   stages {
     stage('Create Storage Infrastructure') {
       steps {
-        script {
+        container('kubectl') {
           sh '''
-
             kubectl apply -f infrastructure/persistent-volumes.yaml --namespace jenkins-developer
-
-
             kubectl get pvc -n jenkins-developer
           '''
         }
