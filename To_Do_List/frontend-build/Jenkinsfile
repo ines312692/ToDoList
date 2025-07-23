@@ -20,14 +20,9 @@ pipeline {
       steps {
         script {
           sh '''
-            echo "Preparing persistent workspace and caches..."
+            echo "Using persistent workspace at /workspace/frontend-build"
             mkdir -p /workspace/frontend-build
-            mkdir -p /workspace/node_modules_cache
             cp -r . /workspace/frontend-build/ || true
-            if [ -d "/workspace/node_modules_cache" ]; then
-              echo "Restoring node_modules cache..."
-              cp -r /workspace/node_modules_cache/* ./To_Do_List/node_modules/ 2>/dev/null || true
-            fi
           '''
         }
       }
@@ -47,18 +42,13 @@ pipeline {
       steps {
         dir('To_Do_List') {
           sh '''
-            echo "Building frontend with Docker cache from PVC..."
+            echo "Building frontend Docker image with cache from PVC..."
             docker build \
               --cache-from $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
               --build-arg BUILDKIT_INLINE_CACHE=1 \
               -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
               -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
               .
-
-            echo "Extracting node_modules for cache..."
-            docker create --name temp-container $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
-            docker cp temp-container:/app/node_modules /workspace/node_modules_cache/ 2>/dev/null || true
-            docker rm temp-container
           '''
         }
       }
@@ -67,7 +57,7 @@ pipeline {
     stage('Push to Docker Hub') {
       steps {
         sh '''
-          echo "Pushing images..."
+          echo "Pushing frontend images..."
           docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
           docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache
         '''
@@ -77,7 +67,7 @@ pipeline {
     stage('Cache Cleanup') {
       steps {
         sh '''
-          echo "Cleaning up old Docker images..."
+          echo "Cleaning up old Docker images to preserve cache space..."
           docker system prune -f --filter "until=24h"
         '''
       }
@@ -87,7 +77,7 @@ pipeline {
   post {
     always {
       sh '''
-        echo "Saving build artifacts to persistent storage..."
+        echo "Saving frontend build artifacts to persistent storage..."
         cp -r . /workspace/frontend-build-$(date +%Y%m%d-%H%M%S)/ || true
       '''
     }
@@ -95,7 +85,7 @@ pipeline {
       echo "Frontend image built and pushed successfully with persistent cache!"
     }
     failure {
-      echo "Build or push failed."
+      echo "Frontend build or push failed."
     }
   }
 }
