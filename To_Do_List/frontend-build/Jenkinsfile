@@ -2,6 +2,7 @@ pipeline {
   agent {
     kubernetes {
       label 'jenkins-frontend-build'
+      defaultContainer 'docker'
       namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
     }
@@ -12,36 +13,16 @@ pipeline {
     DOCKERHUB_IMAGE = 'todo-frontend'
     IMAGE_TAG = 'latest'
     DOCKER_BUILDKIT = '1'
-    WORKSPACE_DIR = '/workspace/frontend-build'
-    NODE_MODULES_DIR = '/node_modules'
   }
 
   stages {
-    stage('Checkout & Prepare Workspace') {
+    stage('Checkout & Cache Preparation') {
       steps {
         script {
           sh '''
-            echo "Setting up persistent workspace at $WORKSPACE_DIR"
-            mkdir -p $WORKSPACE_DIR
-            if [ ! -d "$WORKSPACE_DIR/To_Do_List" ]; then
-              cp -r . $WORKSPACE_DIR/
-            fi
-          '''
-        }
-      }
-    }
-
-    stage('Install Dependencies') {
-      steps {
-        dir("$WORKSPACE_DIR/To_Do_List") {
-          sh '''
-            echo "Checking for existing node_modules..."
-            if [ ! -d "$NODE_MODULES_DIR" ]; then
-              echo "Installing dependencies..."
-              npm ci
-            else
-              echo "Reusing existing node_modules from PVC"
-            fi
+            echo "Using persistent workspace at /workspace/frontend-build"
+            mkdir -p /workspace/frontend-build
+            cp -r . /workspace/frontend-build/ || true
           '''
         }
       }
@@ -51,7 +32,6 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
           sh '''
-            echo "Logging into Docker Hub..."
             echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
           '''
         }
@@ -60,10 +40,11 @@ pipeline {
 
     stage('Build Frontend Image') {
       steps {
-        dir("$WORKSPACE_DIR/To_Do_List") {
+        dir('To_Do_List') {
           sh '''
             echo "Building frontend Docker image with Docker BuildKit..."
             DOCKER_BUILDKIT=1 docker build \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
               -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
               .
           '''
@@ -80,10 +61,10 @@ pipeline {
       }
     }
 
-    stage('Cleanup') {
+    stage('Cache Cleanup') {
       steps {
         sh '''
-          echo "Cleaning up old Docker images to preserve space..."
+          echo "Cleaning up old Docker images to preserve cache space..."
           docker system prune -f --filter "until=24h"
         '''
       }
@@ -93,9 +74,8 @@ pipeline {
   post {
     always {
       sh '''
-        echo "Saving build artifacts to persistent storage..."
-        mkdir -p /artifacts/build-$(date +%Y%m%d-%H%M%S)
-        cp -r $WORKSPACE_DIR/To_Do_List/dist /artifacts/build-$(date +%Y%m%d-%H%M%S)/ || true
+        echo "Saving frontend build artifacts to persistent storage..."
+        cp -r . /workspace/frontend-build-$(date +%Y%m%d-%H%M%S)/ || true
       '''
     }
     success {
