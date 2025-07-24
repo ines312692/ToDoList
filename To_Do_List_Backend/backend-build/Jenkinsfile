@@ -42,24 +42,22 @@ pipeline {
       steps {
         dir('To_Do_List_Backend') {
           sh '''
-            echo "Building with Docker cache from PVC..."
-            docker build \
-              --cache-from $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
+            echo "Building with Docker BuildKit and local cache..."
+            DOCKER_BUILDKIT=1 docker build \
               --build-arg BUILDKIT_INLINE_CACHE=1 \
               -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
-              -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
               .
           '''
         }
       }
     }
 
+
     stage('Push to Docker Hub') {
       steps {
         sh '''
           echo "Pushing images..."
           docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
-          docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache
         '''
       }
     }

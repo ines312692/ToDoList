@@ -1,5 +1,7 @@
 FROM node:20-alpine
 
+LABEL org.opencontainers.image.source="inline-cache"
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -7,7 +9,7 @@ RUN npm ci --only=production
 
 COPY src/ ./src/
 
-# Créer le répertoire pour les données
+# Crée un dossier pour les données (persistants si montés via PVC)
 RUN mkdir -p /app/data
 
 EXPOSE 3000

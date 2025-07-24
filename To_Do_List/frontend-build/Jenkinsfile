@@ -16,13 +16,17 @@ pipeline {
   }
 
   stages {
+
+
     stage('Checkout & Cache Preparation') {
       steps {
         script {
           sh '''
             echo "Using persistent workspace at /workspace/frontend-build"
             mkdir -p /workspace/frontend-build
-            cp -r . /workspace/frontend-build/ || true
+            try { cp -r . /workspace/frontend-build/ }
+            catch (Exception e) {
+            echo "Erreur lors de la copie : ${e.getMessage()}" }
           '''
         }
       }
