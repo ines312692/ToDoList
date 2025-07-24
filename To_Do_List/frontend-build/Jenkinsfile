@@ -53,46 +53,49 @@ pipeline {
             }
         }
 
-       stage('Install Dependencies') {
-         steps {
-           container('docker') {
-             script {
-               sh '''
-                 echo "=== Installation des dépendances avec cache PVC ==="
+       stage('Dependencies Installation') {
+           steps {
+               container('node') {
+                   dir('To_Do_List') {
+                       script {
+                           sh '''
+                               echo "=== Installation des dépendances avec cache PVC ==="
 
-                 CACHE_DIR="/mnt/node_modules_cache/node_modules"
+                               # Création du dossier dans le PVC s'il n'existe pas
+                               mkdir -p "${NODE_MODULES_PVC_PATH}/node_modules"
 
-                 # 1. Créer le dossier dans le PVC si non existant
-                 mkdir -p "${CACHE_DIR}"
+                               # Supprimer l'ancien node_modules s'il n'est pas un lien
+                               if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
+                                   echo "Suppression de l'ancien dossier node_modules"
+                                   rm -rf node_modules
+                               fi
 
-                 # 2. Supprimer node_modules existant s'il est fichier, lien ou dossier
-                 if [ -e "node_modules" ]; then
-                     echo "Suppression de l'ancien node_modules (fichier, dossier ou lien)"
-                     rm -rf node_modules
-                 fi
+                               # Création du lien symbolique si absent
+                               if [ ! -L "node_modules" ]; then
+                                   echo "Création du lien symbolique node_modules → ${NODE_MODULES_PVC_PATH}/node_modules"
+                                   ln -s ${NODE_MODULES_PVC_PATH}/node_modules node_modules
+                               fi
 
-                 # 3. Vérifier si le cache contient déjà des modules
-                 if [ "$(ls -A ${CACHE_DIR})" ]; then
-                     echo "Cache détecté, liaison du dossier partagé"
-                     ln -s ${CACHE_DIR} node_modules
-                     echo "Dépendances déjà installées, passage au build..."
-                 else
-                     echo "Pas de cache, installation initiale"
-                     npm ci
+                               echo "Vérification des dépendances..."
 
-                     echo "Sauvegarde de node_modules dans le PVC"
-                     rsync -av --delete node_modules/ ${CACHE_DIR}/
-
-                     echo "Création du lien symbolique node_modules → ${CACHE_DIR}"
-                     rm -rf node_modules
-                     ln -s ${CACHE_DIR} node_modules
-                 fi
-
-                 ls -l node_modules | head -n 5
-               '''
-             }
+                               if [ "$(ls -A node_modules)" ]; then
+                                   echo "Le cache existe, vérification des mises à jour éventuelles"
+                                   if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
+                                       echo "Mise à jour détectée, réinstallation..."
+                                       rm -rf node_modules/*
+                                       npm ci
+                                   else
+                                       echo "Cache node_modules valide, pas de réinstallation"
+                                   fi
+                               else
+                                   echo "Pas de cache, installation initiale"
+                                   npm ci
+                               fi
+                           '''
+                       }
+                   }
+               }
            }
-         }
        }
 
 
