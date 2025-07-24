@@ -16,17 +16,13 @@ pipeline {
   }
 
   stages {
-
-
     stage('Checkout & Cache Preparation') {
       steps {
         script {
           sh '''
             echo "Using persistent workspace at /workspace/frontend-build"
             mkdir -p /workspace/frontend-build
-            try { cp -r . /workspace/frontend-build/ }
-            catch (Exception e) {
-            echo "Erreur lors de la copie : ${e.getMessage()}" }
+            cp -r . /workspace/frontend-build/ || true
           '''
         }
       }
@@ -46,12 +42,10 @@ pipeline {
       steps {
         dir('To_Do_List') {
           sh '''
-            echo "Building frontend Docker image with cache from PVC..."
-            docker build \
-              --cache-from $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
+            echo "Building frontend Docker image with Docker BuildKit..."
+            DOCKER_BUILDKIT=1 docker build \
               --build-arg BUILDKIT_INLINE_CACHE=1 \
               -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
-              -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache \
               .
           '''
         }
@@ -61,9 +55,8 @@ pipeline {
     stage('Push to Docker Hub') {
       steps {
         sh '''
-          echo "Pushing frontend images..."
+          echo "Pushing frontend image..."
           docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
-          docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:cache
         '''
       }
     }
