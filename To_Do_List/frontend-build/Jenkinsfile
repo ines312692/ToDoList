@@ -123,14 +123,11 @@ pipeline {
                         sh '''
                             DOCKER_BUILDKIT=1 docker build \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
-
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
                               .
 
-                            # Après build, remplace le cache par le nouveau cache généré
-                            rm -rf ${DOCKER_CACHE_PVC_PATH}
-                            mv ${DOCKER_CACHE_PVC_PATH}-new ${DOCKER_CACHE_PVC_PATH}
+
                         '''
                     }
                 }
