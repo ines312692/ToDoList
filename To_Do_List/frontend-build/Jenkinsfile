@@ -14,9 +14,8 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
         DOCKER_BUILDKIT = '1'
 
-        // Chemins de montage des PVC
         NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
-        DOCKER_CACHE_PVC_PATH = '/var/lib/docker' // Monté directement par le Pod Template
+        DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
         WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
         ARTIFACTS_PVC_PATH = '/mnt/artifacts'
     }
@@ -56,41 +55,41 @@ pipeline {
 
         stage('Dependencies Installation') {
             steps {
-                dir('To_Do_List') {
-                    script {
-                        sh '''
-                            echo "=== Installation des dépendances avec cache PVC ==="
+                container('node') {
+                    dir('To_Do_List') {
+                        script {
+                            sh '''
+                                echo "=== Installation des dépendances avec cache PVC ==="
 
-                            # Vérifier si node_modules est déjà lié ou doit être installé
-                            if [ ! -L "node_modules" ]; then
-                                echo "node_modules n'est pas lié, installation des dépendances..."
-                                npm ci
-
-                                # Sauvegarder node_modules dans le PVC si le lien n'existait pas
-                                if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
-                                    echo "Sauvegarde de node_modules dans le PVC."
-                                    rsync -av --delete node_modules/ ${NODE_MODULES_PVC_PATH}/node_modules/
-                                fi
-                            else
-                                echo "node_modules est déjà lié, vérification des dépendances..."
-                                # Si package.json a changé, réinstaller
-                                if [ "$(npm check-updates --json | jq ".upgrades | length")" -gt 0 ]; then
-                                    echo "Mise à jour des dépendances détectée, réinstallation..."
-                                    rm -rf node_modules # Supprimer le lien pour réinstaller
+                                if [ ! -L "node_modules" ]; then
+                                    echo "node_modules n'est pas lié, installation des dépendances..."
                                     npm ci
+
                                     if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
-                                        echo "Mise à jour de node_modules dans le PVC."
+                                        echo "Sauvegarde de node_modules dans le PVC."
                                         rsync -av --delete node_modules/ ${NODE_MODULES_PVC_PATH}/node_modules/
                                     fi
                                 else
-                                    echo "Dépendances à jour."
+                                    echo "node_modules est déjà lié, vérification des dépendances..."
+                                    if [ "$(npm check-updates --json | jq ".upgrades | length")" -gt 0 ]; then
+                                        echo "Mise à jour des dépendances détectée, réinstallation..."
+                                        rm -rf node_modules
+                                        npm ci
+                                        if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
+                                            echo "Mise à jour de node_modules dans le PVC."
+                                            rsync -av --delete node_modules/ ${NODE_MODULES_PVC_PATH}/node_modules/
+                                        fi
+                                    else
+                                        echo "Dépendances à jour."
+                                    fi
                                 fi
-                            fi
-                        '''
+                            '''
+                        }
                     }
                 }
             }
         }
+
 
         stage('Docker Login') {
             steps {
