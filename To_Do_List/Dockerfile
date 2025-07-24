@@ -1,10 +1,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+# Mount node_modules from PVC to avoid re-installing
 COPY package*.json ./
-RUN npm ci
+RUN if [ ! -d "/node_modules" ]; then npm ci; else echo "Using cached node_modules"; fi
 COPY . .
 RUN npm run build
-
 
 FROM nginx:latest
 COPY nginx.conf /etc/nginx/nginx.conf
