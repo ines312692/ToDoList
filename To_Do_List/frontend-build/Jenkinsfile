@@ -53,42 +53,51 @@ pipeline {
             }
         }
 
-        stage('Dependencies Installation') {
-            steps {
-                container('node') {
-                    dir('To_Do_List') {
-                        script {
-                            sh '''
-                                echo "=== Installation des dépendances avec cache PVC ==="
+       stage('Dependencies Installation') {
+           steps {
+               container('node') {
+                   dir('To_Do_List') {
+                       script {
+                           sh '''
+                               echo "=== Installation des dépendances avec cache PVC ==="
 
-                                if [ ! -L "node_modules" ]; then
-                                    echo "node_modules n'est pas lié, installation des dépendances..."
-                                    npm ci
+                               # Création du dossier dans le PVC s'il n'existe pas
+                               mkdir -p "${NODE_MODULES_PVC_PATH}/node_modules"
 
-                                    if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
-                                        echo "Sauvegarde de node_modules dans le PVC."
-                                        rsync -av --delete node_modules/ ${NODE_MODULES_PVC_PATH}/node_modules/
-                                    fi
-                                else
-                                    echo "node_modules est déjà lié, vérification des dépendances..."
-                                    if [ "$(npm check-updates --json | jq ".upgrades | length")" -gt 0 ]; then
-                                        echo "Mise à jour des dépendances détectée, réinstallation..."
-                                        rm -rf node_modules
-                                        npm ci
-                                        if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
-                                            echo "Mise à jour de node_modules dans le PVC."
-                                            rsync -av --delete node_modules/ ${NODE_MODULES_PVC_PATH}/node_modules/
-                                        fi
-                                    else
-                                        echo "Dépendances à jour."
-                                    fi
-                                fi
-                            '''
-                        }
-                    }
-                }
-            }
-        }
+                               # Supprimer l'ancien node_modules s'il n'est pas un lien
+                               if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
+                                   echo "Suppression de l'ancien dossier node_modules"
+                                   rm -rf node_modules
+                               fi
+
+                               # Création du lien symbolique si absent
+                               if [ ! -L "node_modules" ]; then
+                                   echo "Création du lien symbolique node_modules → ${NODE_MODULES_PVC_PATH}/node_modules"
+                                   ln -s ${NODE_MODULES_PVC_PATH}/node_modules node_modules
+                               fi
+
+                               echo "Vérification des dépendances..."
+
+                               if [ "$(ls -A node_modules)" ]; then
+                                   echo "Le cache existe, vérification des mises à jour éventuelles"
+                                   if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
+                                       echo "Mise à jour détectée, réinstallation..."
+                                       rm -rf node_modules/*
+                                       npm ci
+                                   else
+                                       echo "Cache node_modules valide, pas de réinstallation"
+                                   fi
+                               else
+                                   echo "Pas de cache, installation initiale"
+                                   npm ci
+                               fi
+                           '''
+                       }
+                   }
+               }
+           }
+       }
+
 
 
         stage('Docker Login') {
