@@ -123,8 +123,7 @@ pipeline {
                         sh '''
                             DOCKER_BUILDKIT=1 docker build \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
-                              --cache-from=type=local,src=${DOCKER_CACHE_PVC_PATH} \
-                              --cache-to=type=local,dest=${DOCKER_CACHE_PVC_PATH}-new,mode=max \
+
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
                               .
