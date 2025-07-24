@@ -59,6 +59,12 @@ pipeline {
                    dir('To_Do_List') {
                        script {
                            sh '''
+                            echo "=== Debug avant installation ==="
+                                       ls -ld ${NODE_MODULES_PVC_PATH}
+                                       ls -ld ${NODE_MODULES_PVC_PATH}/node_modules
+                                       ls -la ${NODE_MODULES_PVC_PATH}/node_modules || echo "Dossier vide ou inaccessible"
+                                       touch ${NODE_MODULES_PVC_PATH}/node_modules/test_write || echo "Échec écriture"
+
                                echo "=== Installation des dépendances avec cache PVC ==="
 
                                # Création du dossier dans le PVC s'il n'existe pas
