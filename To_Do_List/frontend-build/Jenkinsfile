@@ -1,88 +1,175 @@
 pipeline {
-  agent {
-    kubernetes {
-      label 'jenkins-frontend-build'
-      defaultContainer 'docker'
-      namespace 'jenkins-developer'
-      serviceAccount 'jenkins-deployer'
-    }
-  }
-
-  environment {
-    DOCKERHUB_USERNAME = 'inestmimi123'
-    DOCKERHUB_IMAGE = 'todo-frontend'
-    IMAGE_TAG = 'latest'
-    DOCKER_BUILDKIT = '1'
-  }
-
-  stages {
-    stage('Checkout & Cache Preparation') {
-      steps {
-        script {
-          sh '''
-            echo "Using persistent workspace at /workspace/frontend-build"
-            mkdir -p /workspace/frontend-build
-            cp -r . /workspace/frontend-build/ || true
-          '''
+    agent {
+        kubernetes {
+            label 'jenkins-frontend-build'
+            defaultContainer 'docker'
+            namespace 'jenkins-developer'
+            serviceAccount 'jenkins-deployer'
         }
-      }
     }
 
-    stage('Docker Login') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-          sh '''
-            echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
-          '''
+    environment {
+        DOCKERHUB_USERNAME = 'inestmimi123'
+        DOCKERHUB_IMAGE = 'todo-frontend'
+        IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+        DOCKER_BUILDKIT = '1'
+
+        // Chemins de montage des PVC
+        NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
+        DOCKER_CACHE_PVC_PATH = '/var/lib/docker' // Monté directement par le Pod Template
+        WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
+        ARTIFACTS_PVC_PATH = '/mnt/artifacts'
+    }
+
+    stages {
+        stage('Workspace Setup & Cache Restoration') {
+            steps {
+                script {
+                    sh '''
+                        echo "=== Configuration du workspace avec cache PVC ==="
+
+                        # Copie du code source dans le workspace persistant
+                        # Le répertoire de travail actuel est /home/jenkins/agent/workspace/todo-frontend-build
+                        # Nous allons synchroniser ce répertoire avec le PVC du workspace
+
+                        # Si le PVC du workspace contient déjà des fichiers, les restaurer
+                        if [ -d "${WORKSPACE_PVC_PATH}/frontend-build" ]; then
+                            echo "Restauration du workspace depuis le cache PVC..."
+                            rsync -av --delete ${WORKSPACE_PVC_PATH}/frontend-build/ ./
+                        fi
+
+                        # Création d'un lien symbolique pour node_modules si le PVC est monté
+                        if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
+                            echo "Vérification du cache node_modules..."
+                            # Si le répertoire node_modules existe déjà dans le PVC, le lier
+                            if [ -d "${NODE_MODULES_PVC_PATH}/node_modules" ]; then
+                                echo "Lien symbolique vers node_modules depuis PVC."
+                                ln -s ${NODE_MODULES_PVC_PATH}/node_modules ./To_Do_List/node_modules
+                            fi
+                        fi
+
+                        echo "Workspace configuré avec succès"
+                    '''
+                }
+            }
         }
-      }
-    }
 
-    stage('Build Frontend Image') {
-      steps {
-        dir('To_Do_List') {
-          sh '''
-            echo "Building frontend Docker image with Docker BuildKit..."
-            DOCKER_BUILDKIT=1 docker build \
-              --build-arg BUILDKIT_INLINE_CACHE=1 \
-              -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
-              .
-          '''
+        stage('Dependencies Installation') {
+            steps {
+                dir('To_Do_List') {
+                    script {
+                        sh '''
+                            echo "=== Installation des dépendances avec cache PVC ==="
+
+                            # Vérifier si node_modules est déjà lié ou doit être installé
+                            if [ ! -L "node_modules" ]; then
+                                echo "node_modules n'est pas lié, installation des dépendances..."
+                                npm ci
+
+                                # Sauvegarder node_modules dans le PVC si le lien n'existait pas
+                                if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
+                                    echo "Sauvegarde de node_modules dans le PVC."
+                                    rsync -av --delete node_modules/ ${NODE_MODULES_PVC_PATH}/node_modules/
+                                fi
+                            else
+                                echo "node_modules est déjà lié, vérification des dépendances..."
+                                # Si package.json a changé, réinstaller
+                                if [ "$(npm check-updates --json | jq ".upgrades | length")" -gt 0 ]; then
+                                    echo "Mise à jour des dépendances détectée, réinstallation..."
+                                    rm -rf node_modules # Supprimer le lien pour réinstaller
+                                    npm ci
+                                    if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
+                                        echo "Mise à jour de node_modules dans le PVC."
+                                        rsync -av --delete node_modules/ ${NODE_MODULES_PVC_PATH}/node_modules/
+                                    fi
+                                else
+                                    echo "Dépendances à jour."
+                                fi
+                            fi
+                        '''
+                    }
+                }
+            }
         }
-      }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh '''
+                        echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Build Frontend Image') {
+            steps {
+                dir('To_Do_List') {
+                    script {
+                        sh '''
+                            echo "=== Build Frontend Docker Image avec Cache Local ==="
+
+
+                            DOCKER_BUILDKIT=1 docker build \
+                                --build-arg BUILDKIT_INLINE_CACHE=1 \
+                                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+                                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                                .
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                sh '''
+                    echo "Pushing frontend image..."
+                    docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
+                '''
+            }
+        }
+
+        stage('Cache Persistence & Cleanup') {
+            steps {
+                script {
+                    sh '''
+                        echo "=== Sauvegarde du workspace et nettoyage ==="
+
+                        # Sauvegarde du workspace actuel dans le PVC
+                        mkdir -p ${WORKSPACE_PVC_PATH}/frontend-build
+                        rsync -av --delete --exclude=node_modules --exclude=.git . ${WORKSPACE_PVC_PATH}/frontend-build/
+
+                        # Sauvegarde des artefacts dans le PVC dédié
+                        if [ -d "To_Do_List/dist" ]; then
+                            mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
+                            cp -r To_Do_List/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
+                        fi
+
+                        echo "Workspace et artefacts sauvegardés."
+
+                        # Nettoyage des images Docker non utilisées pour libérer de l'espace sur le PVC Docker Cache
+                        docker system prune -f
+                    '''
+                }
+            }
+        }
     }
 
-    stage('Push to Docker Hub') {
-      steps {
-        sh '''
-          echo "Pushing frontend image..."
-          docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
-        '''
-      }
+    post {
+        always {
+            script {
+                sh '''
+                    echo "Pipeline terminé."
+                '''
+            }
+        }
+        success {
+            echo " Build frontend réussi avec cache PVC optimisé et hors ligne!"
+        }
+        failure {
+            echo " Échec du build frontend"
+        }
     }
-
-    stage('Cache Cleanup') {
-      steps {
-        sh '''
-          echo "Cleaning up old Docker images to preserve cache space..."
-          docker system prune -f --filter "until=24h"
-        '''
-      }
-    }
-  }
-
-  post {
-    always {
-      sh '''
-        echo "Saving frontend build artifacts to persistent storage..."
-        cp -r . /workspace/frontend-build-$(date +%Y%m%d-%H%M%S)/ || true
-      '''
-    }
-    success {
-      echo "Frontend image built and pushed successfully with persistent cache!"
-    }
-    failure {
-      echo "Frontend build or push failed."
-    }
-  }
 }
