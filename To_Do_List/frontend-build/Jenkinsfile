@@ -138,7 +138,7 @@ pipeline {
 
                         # Sauvegarde du workspace actuel dans le PVC
                         mkdir -p ${WORKSPACE_PVC_PATH}/frontend-build
-                        rsync -av --delete --exclude=node_modules --exclude=.git . ${WORKSPACE_PVC_PATH}/frontend-build/
+                        cp -r . ${WORKSPACE_PVC_PATH}/frontend-build/
 
                         # Sauvegarde des artefacts dans le PVC dédié
                         if [ -d "To_Do_List/dist" ]; then
