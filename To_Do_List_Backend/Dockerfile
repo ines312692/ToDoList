@@ -1,15 +1,16 @@
 FROM node:20-alpine
 
-LABEL org.opencontainers.image.source="inline-cache"
+LABEL org.opencontainers.image.source="todo-backend"
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --only=production
+# Check for existing node_modules to avoid re-installing
+RUN if [ ! -d "/node_modules" ]; then npm ci --only=production; else echo "Using cached node_modules"; fi
 
 COPY src/ ./src/
 
-# Crée un dossier pour les données (persistants si montés via PVC)
+# Ensure data directory exists (persisted via PVC)
 RUN mkdir -p /app/data
 
 EXPOSE 3000

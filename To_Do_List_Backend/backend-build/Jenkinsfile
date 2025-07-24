@@ -2,7 +2,6 @@ pipeline {
   agent {
     kubernetes {
       label 'jenkins-backend-build'
-      defaultContainer 'docker'
       namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
     }
@@ -13,16 +12,40 @@ pipeline {
     DOCKERHUB_IMAGE = 'todo-backend'
     IMAGE_TAG = 'latest'
     DOCKER_BUILDKIT = '1'
+    WORKSPACE_DIR = '/workspace/backend-build'
+    NODE_MODULES_DIR = '/node_modules'
+    DATA_DIR = '/app/data'
   }
 
   stages {
-    stage('Checkout & Cache Preparation') {
+    stage('Checkout & Prepare Workspace') {
       steps {
         script {
           sh '''
-            echo "Using persistent workspace at /workspace/backend-build"
-            mkdir -p /workspace/backend-build
-            cp -r . /workspace/backend-build/ || true
+            echo "Setting up persistent workspace at $WORKSPACE_DIR"
+            mkdir -p $WORKSPACE_DIR
+            # Copy source code to persistent workspace only if not already present
+            if [ ! -d "$WORKSPACE_DIR/To_Do_List_Backend" ]; then
+              cp -r . $WORKSPACE_DIR/
+            fi
+            # Ensure data directory exists
+            mkdir -p $DATA_DIR
+          '''
+        }
+      }
+    }
+
+    stage('Install Dependencies') {
+      steps {
+        dir("$WORKSPACE_DIR/To_Do_List_Backend") {
+          sh '''
+            echo "Checking for existing node_modules..."
+            if [ ! -d "$NODE_MODULES_DIR" ]; then
+              echo "Installing dependencies..."
+              npm ci --only=production
+            else
+              echo "Reusing existing node_modules from PVC"
+            fi
           '''
         }
       }
@@ -32,6 +55,7 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
           sh '''
+            echo "Logging into Docker Hub..."
             echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
           '''
         }
@@ -40,11 +64,10 @@ pipeline {
 
     stage('Build Backend Image') {
       steps {
-        dir('To_Do_List_Backend') {
+        dir("$WORKSPACE_DIR/To_Do_List_Backend") {
           sh '''
-            echo "Building with Docker BuildKit and local cache..."
+            echo "Building backend Docker image with Docker BuildKit..."
             DOCKER_BUILDKIT=1 docker build \
-              --build-arg BUILDKIT_INLINE_CACHE=1 \
               -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
               .
           '''
@@ -52,20 +75,19 @@ pipeline {
       }
     }
 
-
     stage('Push to Docker Hub') {
       steps {
         sh '''
-          echo "Pushing images..."
+          echo "Pushing backend image..."
           docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
         '''
       }
     }
 
-    stage('Cache Cleanup') {
+    stage('Cleanup') {
       steps {
         sh '''
-          echo "Cleaning up old Docker images to preserve cache space..."
+          echo "Cleaning up old Docker images to preserve space..."
           docker system prune -f --filter "until=24h"
         '''
       }
@@ -76,14 +98,15 @@ pipeline {
     always {
       sh '''
         echo "Saving build artifacts to persistent storage..."
-        cp -r . /workspace/backend-build-$(date +%Y%m%d-%H%M%S)/ || true
+        mkdir -p /artifacts/build-$(date +%Y%m%d-%H%M%S)
+        cp -r $WORKSPACE_DIR/To_Do_List_Backend /artifacts/build-$(date +%Y%m%d-%H%M%S)/ || true
       '''
     }
     success {
       echo "Backend image built and pushed successfully with persistent cache!"
     }
     failure {
-      echo "Build or push failed."
+      echo "Backend build or push failed."
     }
   }
 }
