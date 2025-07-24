@@ -121,14 +121,17 @@ pipeline {
                 dir('To_Do_List') {
                     script {
                         sh '''
-                            echo "=== Build Frontend Docker Image avec Cache Local ==="
-
-
                             DOCKER_BUILDKIT=1 docker build \
-                                --build-arg BUILDKIT_INLINE_CACHE=1 \
-                                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
-                                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
-                                .
+                              --build-arg BUILDKIT_INLINE_CACHE=1 \
+                              --cache-from=type=local,src=${DOCKER_CACHE_PVC_PATH} \
+                              --cache-to=type=local,dest=${DOCKER_CACHE_PVC_PATH}-new,mode=max \
+                              -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+                              -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                              .
+
+                            # Après build, remplace le cache par le nouveau cache généré
+                            rm -rf ${DOCKER_CACHE_PVC_PATH}
+                            mv ${DOCKER_CACHE_PVC_PATH}-new ${DOCKER_CACHE_PVC_PATH}
                         '''
                     }
                 }
