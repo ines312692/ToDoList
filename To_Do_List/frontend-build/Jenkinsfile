@@ -1,46 +1,40 @@
-pipeline {
-    agent {
-        kubernetes {
-            label 'jenkins-frontend-build'
-            defaultContainer 'docker'
-            namespace 'jenkins-developer'
-            serviceAccount 'jenkins-deployer'
+pipeline { // Définition du pipeline Jenkins
+    agent { // Spécifie l'agent d'exécution
+        kubernetes { // Utilise un pod Kubernetes
+            label 'jenkins-frontend-build' // Label du pod
+            defaultContainer 'docker' // Conteneur par défaut
+            namespace 'jenkins-developer' // Namespace Kubernetes
+            serviceAccount 'jenkins-deployer' // Compte de service utilisé
         }
     }
 
-    environment {
-        DOCKERHUB_USERNAME = 'inestmimi123'
-        DOCKERHUB_IMAGE = 'todo-frontend'
-        IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
-        DOCKER_BUILDKIT = '1'
-
-        NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
-        DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
-        WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
-        ARTIFACTS_PVC_PATH = '/mnt/artifacts'
+    environment { // Variables d'environnement globales
+        DOCKERHUB_USERNAME = 'inestmimi123' // Nom d'utilisateur DockerHub
+        DOCKERHUB_IMAGE = 'todo-frontend' // Nom de l'image Docker
+        IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}" // Tag de l'image (build + commit)
+        DOCKER_BUILDKIT = '1' // Active BuildKit pour Docker
+        NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache' // Chemin du cache node_modules
+        DOCKER_CACHE_PVC_PATH = '/var/lib/docker' // Chemin du cache Docker
+        WORKSPACE_PVC_PATH = '/mnt/workspace_cache' // Chemin du cache workspace
+        ARTIFACTS_PVC_PATH = '/mnt/artifacts' // Chemin du cache des artefacts
     }
 
-    stages {
-        stage('Workspace Setup & Cache Restoration') {
+    stages { // Définition des étapes du pipeline
+        stage('Workspace Setup & Cache Restoration') { // Préparation du workspace et restauration du cache
             steps {
                 script {
                     sh '''
                         echo "=== Configuration du workspace avec cache PVC ==="
 
-                        # Copie du code source dans le workspace persistant
-                        # Le répertoire de travail actuel est /home/jenkins/agent/workspace/todo-frontend-build
-                        # Nous allons synchroniser ce répertoire avec le PVC du workspace
-
-                        # Si le PVC du workspace contient déjà des fichiers, les restaurer
+                        # Restaure le workspace depuis le cache si disponible
                         if [ -d "${WORKSPACE_PVC_PATH}/frontend-build" ]; then
                             echo "Restauration du workspace depuis le cache PVC..."
                             rsync -av --delete ${WORKSPACE_PVC_PATH}/frontend-build/ ./
                         fi
 
-                        # Création d'un lien symbolique pour node_modules si le PVC est monté
+                        # Vérifie et restaure le cache node_modules
                         if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
                             echo "Vérification du cache node_modules..."
-                            # Si le répertoire node_modules existe déjà dans le PVC, le lier
                             if [ -d "${NODE_MODULES_PVC_PATH}/node_modules" ]; then
                                 echo "Lien symbolique vers node_modules depuis PVC."
                                 ln -s ${NODE_MODULES_PVC_PATH}/node_modules ./To_Do_List/node_modules
@@ -53,50 +47,41 @@ pipeline {
             }
         }
 
-       stage('Dependencies Installation') {
+       stage('Dependencies Installation') { // Installation des dépendances npm
            steps {
-               container('node') {
-                   dir('To_Do_List') {
+               container('node') { // Utilise le conteneur Node.js
+                   dir('To_Do_List') { // Se place dans le dossier du frontend
                        script {
                            sh '''
-                            echo "=== Debug avant installation ==="
-                                       ls -ld ${NODE_MODULES_PVC_PATH}
-                                       ls -ld ${NODE_MODULES_PVC_PATH}/node_modules
-                                       ls -la ${NODE_MODULES_PVC_PATH}/node_modules || echo "Dossier vide ou inaccessible"
-                                       touch ${NODE_MODULES_PVC_PATH}/node_modules/test_write || echo "Échec écriture"
 
-                               echo "=== Installation des dépendances avec cache PVC ==="
 
-                               # Création du dossier dans le PVC s'il n'existe pas
-                               mkdir -p "${NODE_MODULES_PVC_PATH}/node_modules"
+                            echo "=== Installation des dépendances avec cache PVC ==="
 
-                               # Supprimer l'ancien node_modules s'il n'est pas un lien
-                               if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
-                                   echo "Suppression de l'ancien dossier node_modules"
-                                   rm -rf node_modules
-                               fi
+                            mkdir -p "${NODE_MODULES_PVC_PATH}/node_modules" # Crée le dossier cache si absent
+                            if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
+                                echo "Suppression de l'ancien dossier node_modules"
+                                rm -rf node_modules
+                            fi
+                            if [ ! -L "node_modules" ]; then
+                                echo "Création du lien symbolique node_modules → ${NODE_MODULES_PVC_PATH}/node_modules"
+                                ln -s ${NODE_MODULES_PVC_PATH}/node_modules node_modules
+                            fi
 
-                               # Création du lien symbolique si absent
-                               if [ ! -L "node_modules" ]; then
-                                   echo "Création du lien symbolique node_modules → ${NODE_MODULES_PVC_PATH}/node_modules"
-                                   ln -s ${NODE_MODULES_PVC_PATH}/node_modules node_modules
-                               fi
+                            # Vérifie si le cache existe
+                            if [ "$(ls -A node_modules)" ]; then
+                                echo "Le cache existe, vérification des mises à jour éventuelles"
 
-                               echo "Vérification des dépendances..."
-
-                               if [ "$(ls -A node_modules)" ]; then
-                                   echo "Le cache existe, vérification des mises à jour éventuelles"
-                                   if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
-                                       echo "Mise à jour détectée, réinstallation..."
-                                       rm -rf node_modules/*
-                                       npm ci
-                                   else
-                                       echo "Cache node_modules valide, pas de réinstallation"
-                                   fi
-                               else
-                                   echo "Pas de cache, installation initiale"
-                                   npm ci
-                               fi
+                                if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
+                                    echo "Mise à jour détectée, réinstallation..."
+                                    rm -rf node_modules/*
+                                    npm ci #installe les dépendances du projet à partir du fichier package-lock.json.
+                                else
+                                    echo "Cache node_modules valide, pas de réinstallation"
+                                fi
+                            else
+                                echo "Pas de cache, installation initiale"
+                                npm ci
+                            fi
                            '''
                        }
                    }
@@ -104,9 +89,7 @@ pipeline {
            }
        }
 
-
-
-        stage('Docker Login') {
+        stage('Docker Login') { // Connexion à DockerHub
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                     sh '''
@@ -116,9 +99,9 @@ pipeline {
             }
         }
 
-        stage('Build Frontend Image') {
+        stage('Build Frontend Image') { // Construction de l'image Docker du frontend
             steps {
-                dir('To_Do_List') {
+                dir('To_Do_List') { // Se place dans le dossier du frontend
                     script {
                         sh '''
                             DOCKER_BUILDKIT=1 docker build \
@@ -126,15 +109,13 @@ pipeline {
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
                               .
-
-
                         '''
                     }
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Push to Docker Hub') { // Pousse l'image sur DockerHub
             steps {
                 sh '''
                     echo "Pushing frontend image..."
@@ -144,17 +125,16 @@ pipeline {
             }
         }
 
-        stage('Cache Persistence & Cleanup') {
+        stage('Cache Persistence & Cleanup') { // Sauvegarde du cache et nettoyage
             steps {
                 script {
                     sh '''
                         echo "=== Sauvegarde du workspace et nettoyage ==="
 
-                        # Sauvegarde du workspace actuel dans le PVC
                         mkdir -p ${WORKSPACE_PVC_PATH}/frontend-build
                         cp -r . ${WORKSPACE_PVC_PATH}/frontend-build/
 
-                        # Sauvegarde des artefacts dans le PVC dédié
+                        # Sauvegarde des artefacts de build
                         if [ -d "To_Do_List/dist" ]; then
                             mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
                             cp -r To_Do_List/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
@@ -162,15 +142,14 @@ pipeline {
 
                         echo "Workspace et artefacts sauvegardés."
 
-                        # Nettoyage des images Docker non utilisées pour libérer de l'espace sur le PVC Docker Cache
-                        docker system prune -f
+                        docker system prune -f # Nettoyage Docker
                     '''
                 }
             }
         }
     }
 
-    post {
+    post { // Actions post-pipeline
         always {
             script {
                 sh '''

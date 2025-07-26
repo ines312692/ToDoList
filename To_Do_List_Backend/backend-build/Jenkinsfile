@@ -1,7 +1,7 @@
 pipeline {
   agent {
     kubernetes {
-      label 'jenkins-backend-build'
+      inheritFrom 'jenkins-backend-build'
       defaultContainer 'docker'
       namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
