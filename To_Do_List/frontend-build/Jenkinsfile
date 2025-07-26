@@ -1,7 +1,7 @@
 pipeline { // Définition du pipeline Jenkins
     agent { // Spécifie l'agent d'exécution
         kubernetes { // Utilise un pod Kubernetes
-            label 'jenkins-frontend-build' // Label du pod
+            inheritFrom 'jenkins-frontend-build' // Label du pod
             defaultContainer 'docker' // Conteneur par défaut
             namespace 'jenkins-developer' // Namespace Kubernetes
             serviceAccount 'jenkins-deployer' // Compte de service utilisé
