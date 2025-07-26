@@ -1,7 +1,7 @@
 pipeline {
   agent {
     kubernetes {
-      label 'jenkins-frontend'
+      inheritFrom 'jenkins-frontend'
       defaultContainer 'helm'
       namespace 'jenkins-developer'
       serviceAccount 'jenkins-deployer'
