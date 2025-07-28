@@ -67,46 +67,37 @@ pipeline {
                 container('node') {
                     script {
                         sh '''
-                            echo "=== Installation des dépendances avec cache PVC ==="
+                            echo "=== Installation des dépendances avec cache PVC direct (/mnt/node_modules_cache) ==="
                             cd "${WORK_DIR}"
 
-                            echo "DEBUG: Lien node_modules"
-                            ls -l node_modules || true
-
-                            echo "DEBUG: Contenu du cache avant installation"
-                            ls -lah ${NODE_MODULES_PVC_PATH}/cache | head -10
-
                             if [ ! -f "package.json" ]; then
-                                echo "ERREUR: package.json non trouvé"
+                                echo "ERREUR: package.json introuvable"
                                 exit 1
                             fi
 
-                            if [ "$(ls -A ${NODE_MODULES_PVC_PATH}/cache 2>/dev/null || true)" ]; then
-                                echo "Cache détecté"
+                            echo " Vérification du contenu du cache"
+                            ls -lah ${NODE_MODULES_PVC_PATH} || true
 
-                                if [ -f "package-lock.json" ] && [ -f "${NODE_MODULES_PVC_PATH}/package-lock.json.bak" ]; then
-                                    if cmp -s "package-lock.json" "${NODE_MODULES_PVC_PATH}/package-lock.json.bak"; then
-                                        echo "Cache valide, tentative avec npm install"
-                                        npm config set cache ${NODE_MODULES_PVC_PATH}/npm-cache --global
-                                        npm install --prefer-offline
-                                    else
-                                        echo "package-lock.json a changé. Réinstallation complète"
-                                        rm -rf ${NODE_MODULES_PVC_PATH}/cache/*
-                                        npm install --prefer-offline
-                                    fi
-                                else
-                                    echo "Pas de backup, installation initiale"
-                                    npm install --prefer-offline
-                                fi
+                            # Si des modules sont déjà en cache, on restaure
+                            if [ -d "${NODE_MODULES_PVC_PATH}" ] && [ "$(ls -A ${NODE_MODULES_PVC_PATH})" ]; then
+                                echo "Cache détecté, restauration dans node_modules"
+                                rm -rf node_modules
+                                mkdir -p node_modules
+                                cp -r ${NODE_MODULES_PVC_PATH}/* node_modules/
                             else
-                                echo "Pas de cache, installation initiale"
-                                npm install --prefer-offline
+                                echo " Pas de cache, installation initiale"
+                                rm -rf node_modules
+                                npm ci
+
+                                echo "Sauvegarde du cache node_modules vers PVC"
+                                rm -rf ${NODE_MODULES_PVC_PATH}/*
+                                cp -r node_modules/* ${NODE_MODULES_PVC_PATH}/
                             fi
 
-                            echo "DEBUG: Contenu du cache après install"
-                            ls -lah ${NODE_MODULES_PVC_PATH}/cache | head -10
-
+                            echo "Sauvegarde de package-lock.json"
                             cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
+
+                            echo "Dépendances installées et prêtes"
                         '''
                     }
                 }
