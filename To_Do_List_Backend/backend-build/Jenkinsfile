@@ -31,29 +31,16 @@ pipeline {
         container('node') {
           dir('To_Do_List_Backend') {
             sh '''
-              echo "=== Installing dependencies using PVC-mounted node_modules ==="
-
-              # Assure le dossier node_modules dans le PVC
               mkdir -p ${WORKSPACE_PVC_PATH}/node_modules
-
-              # Crée lien symbolique local vers node_modules du PVC
               ln -sf ${WORKSPACE_PVC_PATH}/node_modules ./node_modules
-
               if [ -f package.json ]; then
-                # Vérifie si des paquets sont obsolètes
                 outdated=$(npm outdated --json || echo '{}')
                 if [ "$(echo "$outdated" | jq length)" -gt 0 ]; then
-                  echo "Outdated dependencies detected, reinstalling..."
                   rm -rf node_modules/*
                   npm ci
                 elif [ ! -d node_modules ] || [ ! "$(ls -A node_modules)" ]; then
-                  echo "No node_modules found, running npm ci..."
                   npm ci
-                else
-                  echo "node_modules cache is valid, skipping npm install"
                 fi
-              else
-                echo "No package.json found, skipping npm install"
               fi
             '''
           }
@@ -65,9 +52,7 @@ pipeline {
       steps {
         container('docker') {
           withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-            sh '''
-              echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
-            '''
+            sh 'echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin'
           }
         }
       }
@@ -78,7 +63,6 @@ pipeline {
         container('docker') {
           dir('To_Do_List_Backend') {
             sh '''
-              echo "=== Building Docker image with BuildKit ==="
               DOCKER_BUILDKIT=1 docker build \
                 --build-arg BUILDKIT_INLINE_CACHE=1 \
                 --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
@@ -106,11 +90,8 @@ pipeline {
         container('node') {
           sh '''
             if [ -d "To_Do_List_Backend/dist" ]; then
-              echo "Saving build artifacts to PVC..."
               mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
               cp -r To_Do_List_Backend/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
-            else
-              echo "No dist directory found, skipping artifact persistence"
             fi
           '''
         }
@@ -120,9 +101,7 @@ pipeline {
     stage('Cleanup Docker') {
       steps {
         container('docker') {
-          sh '''
-            docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"
-          '''
+          sh 'docker system prune -f --filter "until=24h" || true'
         }
       }
     }
