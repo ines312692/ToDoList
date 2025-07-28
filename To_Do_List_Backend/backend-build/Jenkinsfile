@@ -81,7 +81,6 @@ pipeline {
               echo "=== Building Docker image with BuildKit ==="
               DOCKER_BUILDKIT=1 docker build \
                 --build-arg BUILDKIT_INLINE_CACHE=1 \
-                --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
                 -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
                 -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest .
             '''
