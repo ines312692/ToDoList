@@ -20,26 +20,27 @@ pipeline {
 
     stages {
         stage('Prepare Workspace (Direct PVC Link)') {
-            steps {
-                container('node') {
-                    script {
-                        sh '''
-                            echo "=== Préparation du workspace avec lien direct PVC ==="
-
-                            mkdir -p ${WORKSPACE_PVC_PATH}/frontend
-                            if [ ! -L "To_Do_List" ]; then
-                                ln -s ${WORKSPACE_PVC_PATH}/frontend To_Do_List
-                            fi
-
-                            mkdir -p ${NODE_MODULES_PVC_PATH}/node_modules
-                            if [ ! -L "To_Do_List/node_modules" ]; then
-                                ln -s ${NODE_MODULES_PVC_PATH}/node_modules To_Do_List/node_modules
-                            fi
-                        '''
+                    steps {
+                        container('node') {
+                            script {
+                                sh '''
+                                    echo "=== Preparing workspace with direct PVC link ==="
+                                    mkdir -p ${WORKSPACE_PVC_PATH}/To_Do_List
+                                    if [ ! -L "To_Do_List" ]; then
+                                        ln -s ${WORKSPACE_PVC_PATH}/To_Do_List To_Do_List
+                                    fi
+                                    mkdir -p ${NODE_MODULES_PVC_PATH}/node_modules
+                                    if [ ! -L "To_Do_List/node_modules" ]; then
+                                        ln -s ${NODE_MODULES_PVC_PATH}/node_modules To_Do_List/node_modules
+                                    fi
+                                    echo "=== Verifying workspace ==="
+                                    ls -lah To_Do_List
+                                    ls -lah To_Do_List/src
+                                '''
+                            }
+                        }
                     }
                 }
-            }
-        }
 
         stage('Install Dependencies') {
             steps {
