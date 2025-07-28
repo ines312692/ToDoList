@@ -152,15 +152,21 @@ pipeline {
                             echo "=== Build Angular et sauvegarde des artefacts dans PVC ==="
                             cd "${WORK_DIR}"
 
-                            # Créer le répertoire de destination dans le PVC
+                            # S’assurer que node_modules est bien là
+                            if [ ! -d "node_modules" ]; then
+                                echo "node_modules manquant, installation..."
+                                npm ci
+                            fi
+
+                            # Ajouter node_modules/.bin au PATH pour trouver ng
+                            export PATH=$PWD/node_modules/.bin:$PATH
+
                             ARTIFACT_DIR="${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}"
                             mkdir -p "$ARTIFACT_DIR"
 
-                            # Build Angular directement dans le PVC
                             echo "Build en cours vers $ARTIFACT_DIR"
                             npm run build -- --output-path="$ARTIFACT_DIR"
 
-                            # Créer un lien vers le dernier build
                             ln -sfn "$ARTIFACT_DIR" "${ARTIFACTS_PVC_PATH}/latest"
 
                             echo "Artefacts sauvegardés dans $ARTIFACT_DIR"
@@ -170,6 +176,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Docker Cleanup') {
             steps {
