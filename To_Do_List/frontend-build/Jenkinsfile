@@ -70,43 +70,49 @@ pipeline {
                             echo "=== Installation des dépendances avec cache PVC ==="
                             cd "${WORK_DIR}"
 
-                            # Vérifier si package.json existe
+                            echo "DEBUG: Lien node_modules"
+                            ls -l node_modules || true
+
+                            echo "DEBUG: Contenu du cache avant installation"
+                            ls -lah ${NODE_MODULES_PVC_PATH}/cache | head -10
+
                             if [ ! -f "package.json" ]; then
-                                echo "ERREUR: package.json non trouvé dans ${WORK_DIR}"
+                                echo "ERREUR: package.json non trouvé"
                                 exit 1
                             fi
 
-                            # Vérifier si le cache contient des modules
                             if [ "$(ls -A ${NODE_MODULES_PVC_PATH}/cache 2>/dev/null || true)" ]; then
-                                echo "Cache node_modules détecté, vérification des mises à jour"
+                                echo "Cache détecté"
 
-                                # Comparer package-lock.json si il existe
                                 if [ -f "package-lock.json" ] && [ -f "${NODE_MODULES_PVC_PATH}/package-lock.json.bak" ]; then
-                                    if ! cmp -s "package-lock.json" "${NODE_MODULES_PVC_PATH}/package-lock.json.bak"; then
-                                        echo "package-lock.json modifié, réinstallation nécessaire"
-                                        rm -rf "${NODE_MODULES_PVC_PATH}/cache/*"
-                                        npm ci
+                                    if cmp -s "package-lock.json" "${NODE_MODULES_PVC_PATH}/package-lock.json.bak"; then
+                                        echo "Cache valide, tentative avec npm install"
+                                        npm config set cache ${NODE_MODULES_PVC_PATH}/npm-cache --global
+                                        npm install --prefer-offline
                                     else
-                                        echo "Cache valide, pas de réinstallation nécessaire"
+                                        echo "package-lock.json a changé. Réinstallation complète"
+                                        rm -rf ${NODE_MODULES_PVC_PATH}/cache/*
+                                        npm install --prefer-offline
                                     fi
                                 else
-                                    echo "Première installation ou pas de package-lock.json"
-                                    npm ci
+                                    echo "Pas de backup, installation initiale"
+                                    npm install --prefer-offline
                                 fi
                             else
                                 echo "Pas de cache, installation initiale"
-                                npm ci
+                                npm install --prefer-offline
                             fi
 
-                            # Sauvegarder package-lock.json pour la prochaine fois
-                            if [ -f "package-lock.json" ]; then
-                                cp "package-lock.json" "${NODE_MODULES_PVC_PATH}/package-lock.json.bak"
-                            fi
+                            echo "DEBUG: Contenu du cache après install"
+                            ls -lah ${NODE_MODULES_PVC_PATH}/cache | head -10
+
+                            cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
                         '''
                     }
                 }
             }
         }
+
 
         stage('Docker Login') {
             steps {
@@ -178,10 +184,8 @@ pipeline {
             steps {
                 sh '''
                     echo "=== Nettoyage Docker ==="
-                    # Garder les images récentes et nettoyer le reste
                     docker system prune -f --filter "until=24h"
 
-                    # Optionnel: garder seulement les 3 dernières images de notre projet
                     docker images ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE} --format "table {{.Tag}}\t{{.CreatedAt}}" | \
                     tail -n +2 | sort -k2 -r | tail -n +4 | awk '{print $1}' | \
                     xargs -r -I {} docker rmi ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:{} || true
@@ -199,7 +203,6 @@ pipeline {
                     echo "Commit: ${GIT_COMMIT}"
                     echo "Image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}"
 
-                    # Afficher l'utilisation de l'espace des PVCs
                     echo "=== Utilisation des PVCs ==="
                     df -h ${NODE_MODULES_PVC_PATH} || true
                     df -h ${ARTIFACTS_PVC_PATH} || true
@@ -208,7 +211,7 @@ pipeline {
             }
         }
         success {
-            echo "✅ Build frontend réussi avec optimisation PVC complète"
+            echo "Build frontend réussi avec optimisation PVC complète"
             script {
                 sh '''
                     echo "Artefacts disponibles dans: ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}"
@@ -217,7 +220,7 @@ pipeline {
             }
         }
         failure {
-            echo "❌ Échec du build frontend"
+            echo "Échec du build frontend"
             script {
                 sh '''
                     echo "=== Diagnostic d'erreur ==="
@@ -231,7 +234,7 @@ pipeline {
         cleanup {
             sh '''
                 echo "=== Nettoyage final ==="
-                # Déconnecter de Docker Hub
+
                 docker logout || true
             '''
         }
