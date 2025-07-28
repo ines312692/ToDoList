@@ -14,80 +14,61 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
         DOCKER_BUILDKIT = '1'
         NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
-        DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
-        WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
-        ARTIFACTS_PVC_PATH = '/mnt/artifacts'
+        WORKSPACE_PVC_PATH    = '/mnt/workspace_cache'
+        ARTIFACTS_PVC_PATH    = '/mnt/artifacts'
     }
 
     stages {
-        stage('Workspace Setup & Cache Restoration') {
+        stage('Prepare Workspace (Direct PVC Link)') {
             steps {
-                script {
-                    sh '''
-                        echo "=== Configuration du workspace avec cache PVC ==="
+                container('node') {
+                    script {
+                        sh '''
+                            echo "=== Préparation du workspace avec lien direct PVC ==="
 
-                        # Restaure le workspace depuis le cache si disponible
-                        if [ -d "${WORKSPACE_PVC_PATH}/frontend-build" ]; then
-                            echo "Restauration du workspace depuis le cache PVC..."
-                            rsync -av --delete ${WORKSPACE_PVC_PATH}/frontend-build/ ./
-                        fi
-
-                        # Vérifie et restaure le cache node_modules
-                        if [ -d "${NODE_MODULES_PVC_PATH}" ]; then
-                            echo "Vérification du cache node_modules..."
-                            if [ -d "${NODE_MODULES_PVC_PATH}/node_modules" ]; then
-                                echo "Lien symbolique vers node_modules depuis PVC."
-                                ln -s ${NODE_MODULES_PVC_PATH}/node_modules ./To_Do_List/node_modules
+                            mkdir -p ${WORKSPACE_PVC_PATH}/frontend
+                            if [ ! -L "To_Do_List" ]; then
+                                ln -s ${WORKSPACE_PVC_PATH}/frontend To_Do_List
                             fi
-                        fi
 
-                        echo "Workspace configuré avec succès"
-                    '''
+                            mkdir -p ${NODE_MODULES_PVC_PATH}/node_modules
+                            if [ ! -L "To_Do_List/node_modules" ]; then
+                                ln -s ${NODE_MODULES_PVC_PATH}/node_modules To_Do_List/node_modules
+                            fi
+                        '''
+                    }
                 }
             }
         }
 
-       stage('Dependencies Installation') {
-           steps {
-               container('node') {
-                   dir('To_Do_List') {
-                       script {
-                           sh '''
+        stage('Install Dependencies') {
+            steps {
+                container('node') {
+                    dir('To_Do_List') {
+                        script {
+                            sh '''
+                                echo "=== Installation des dépendances ==="
 
+                                if [ "$(ls -A node_modules)" ]; then
+                                    echo "node_modules existe"
 
-                            echo "=== Installation des dépendances avec cache PVC ==="
-
-                            mkdir -p "${NODE_MODULES_PVC_PATH}/node_modules" # Crée le dossier cache si absent
-                            if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
-                                echo "Suppression de l'ancien dossier node_modules"
-                                rm -rf node_modules
-                            fi
-                            if [ ! -L "node_modules" ]; then
-                                echo "Création du lien symbolique node_modules → ${NODE_MODULES_PVC_PATH}/node_modules"
-                                ln -s ${NODE_MODULES_PVC_PATH}/node_modules node_modules
-                            fi
-
-                            # Vérifie si le cache existe
-                            if [ "$(ls -A node_modules)" ]; then
-                                echo "Le cache existe, vérification des mises à jour éventuelles"
-
-                                if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
-                                    echo "Mise à jour détectée, réinstallation..."
-                                    rm -rf node_modules/*
-                                    npm ci #installe les dépendances du projet à partir du fichier package-lock.json.
+                                    if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
+                                        echo "Dépendances obsolètes, réinstallation..."
+                                        rm -rf node_modules/*
+                                        npm ci
+                                    else
+                                        echo "Cache valide, aucune mise à jour"
+                                    fi
                                 else
-                                    echo "Cache node_modules valide, pas de réinstallation"
+                                    echo "node_modules vide, installation initiale"
+                                    npm ci
                                 fi
-                            else
-                                echo "Pas de cache, installation initiale"
-                                npm ci
-                            fi
-                           '''
-                       }
-                   }
-               }
-           }
-       }
+                            '''
+                        }
+                    }
+                }
+            }
+        }
 
         stage('Docker Login') {
             steps {
@@ -99,11 +80,12 @@ pipeline {
             }
         }
 
-        stage('Build Frontend Image') {
+        stage('Build Docker Image') {
             steps {
                 dir('To_Do_List') {
                     script {
                         sh '''
+                            echo "=== Build de l'image Docker avec BuildKit ==="
                             DOCKER_BUILDKIT=1 docker build \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
@@ -118,31 +100,23 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 sh '''
-                    echo "Pushing frontend image..."
+                    echo "=== Push de l'image vers DockerHub ==="
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
                 '''
             }
         }
 
-        stage('Cache Persistence & Cleanup') {
+        stage('Save Artifacts') {
             steps {
                 script {
                     sh '''
-                        echo "=== Sauvegarde du workspace et nettoyage ==="
+                        echo "=== Sauvegarde des artefacts ==="
 
-                        mkdir -p ${WORKSPACE_PVC_PATH}/frontend-build
-                        cp -r . ${WORKSPACE_PVC_PATH}/frontend-build/
-
-                        # Sauvegarde des artefacts de build
                         if [ -d "To_Do_List/dist" ]; then
                             mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
                             cp -r To_Do_List/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
                         fi
-
-                        echo "Workspace et artefacts sauvegardés."
-
-                        docker system prune -f # Nettoyage Docker
                     '''
                 }
             }
@@ -151,17 +125,13 @@ pipeline {
 
     post {
         always {
-            script {
-                sh '''
-                    echo "Pipeline terminé."
-                '''
-            }
+            sh 'echo "Pipeline terminé."'
         }
         success {
-            echo " Build frontend réussi avec cache PVC optimisé et hors ligne!"
+            echo " Build frontend réussi avec cache PVC et workspace lié directement."
         }
         failure {
-            echo " Échec du build frontend"
+            echo "Échec du build frontend."
         }
     }
 }
