@@ -13,13 +13,9 @@ pipeline {
         DOCKERHUB_IMAGE = 'todo-frontend'
         IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
         DOCKER_BUILDKIT = '1'
-
-        // Chemins PVC
         NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
         DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
         ARTIFACTS_PVC_PATH = '/artifacts'
-
-        // Répertoire de travail dans le workspace Jenkins (sous-répertoire du projet Angular)
         WORK_DIR = "${WORKSPACE}/To_Do_List"
     }
 
@@ -29,33 +25,15 @@ pipeline {
                 container('node') {
                     script {
                         sh '''
-                            echo "=== Configuration du cache node_modules avec PVC ==="
-
-                            # Vérifier que le répertoire To_Do_List existe
-                            if [ ! -d "${WORKSPACE}/To_Do_List" ]; then
-                                echo "ERREUR: Le répertoire To_Do_List n'existe pas dans ${WORKSPACE}"
-                                ls -la "${WORKSPACE}"
-                                exit 1
-                            fi
-
-                            # Créer le lien symbolique vers le cache PVC dans le bon répertoire
                             if [ -d "${WORK_DIR}/node_modules" ] && [ ! -L "${WORK_DIR}/node_modules" ]; then
-                                echo "Suppression de l'ancien répertoire node_modules"
                                 rm -rf "${WORK_DIR}/node_modules"
                             fi
 
-                            # Créer le répertoire cache s'il n'existe pas
                             mkdir -p "${NODE_MODULES_PVC_PATH}/cache"
 
-                            # Créer le lien symbolique vers le cache PVC
                             if [ ! -L "${WORK_DIR}/node_modules" ]; then
-                                echo "Création du lien symbolique vers le cache PVC"
                                 ln -sf "${NODE_MODULES_PVC_PATH}/cache" "${WORK_DIR}/node_modules"
                             fi
-
-                            echo "Configuration du cache terminée"
-                            echo "Contenu du répertoire de travail:"
-                            ls -la "${WORK_DIR}" | head -10
                         '''
                     }
                 }
@@ -67,50 +45,34 @@ pipeline {
                 container('node') {
                     script {
                         sh '''
-                            echo "=== Installation des dépendances avec cache PVC direct (/mnt/node_modules_cache) ==="
                             cd "${WORK_DIR}"
 
                             if [ ! -f "package.json" ]; then
-                                echo "ERREUR: package.json introuvable"
                                 exit 1
                             fi
 
-                            echo " Vérification du contenu du cache"
-                            ls -lah ${NODE_MODULES_PVC_PATH} || true
-
-                            # Si des modules sont déjà en cache, on restaure
                             if [ -d "${NODE_MODULES_PVC_PATH}" ] && [ "$(ls -A ${NODE_MODULES_PVC_PATH})" ]; then
-                                echo "Cache détecté, restauration dans node_modules"
                                 rm -rf node_modules
                                 mkdir -p node_modules
                                 cp -r ${NODE_MODULES_PVC_PATH}/* node_modules/
                             else
-                                echo " Pas de cache, installation initiale"
                                 rm -rf node_modules
                                 npm ci
-
-                                echo "Sauvegarde du cache node_modules vers PVC"
                                 rm -rf ${NODE_MODULES_PVC_PATH}/*
                                 cp -r node_modules/* ${NODE_MODULES_PVC_PATH}/
                             fi
 
-                            echo "Sauvegarde de package-lock.json"
                             cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
-
-                            echo "Dépendances installées et prêtes"
                         '''
                     }
                 }
             }
         }
 
-
         stage('Docker Login') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    sh '''
-                        echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
-                    '''
+                    sh 'echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin'
                 }
             }
         }
@@ -119,10 +81,8 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        echo "=== Build de l'image Docker avec BuildKit et cache ==="
                         cd "${WORK_DIR}"
 
-                        # Build avec cache Docker depuis PVC
                         DOCKER_BUILDKIT=1 docker build \
                           --build-arg BUILDKIT_INLINE_CACHE=1 \
                           --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
@@ -137,19 +97,15 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 sh '''
-                    echo "=== Push des images vers Docker Hub ==="
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
                 '''
             }
         }
 
-
-
         stage('Docker Cleanup') {
             steps {
                 sh '''
-                    echo "=== Nettoyage Docker ==="
                     docker system prune -f --filter "until=24h"
 
                     docker images ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE} --format "table {{.Tag}}\t{{.CreatedAt}}" | \
@@ -164,12 +120,10 @@ pipeline {
         always {
             script {
                 sh '''
-                    echo "=== Informations finales ==="
                     echo "Build: ${BUILD_NUMBER}"
                     echo "Commit: ${GIT_COMMIT}"
                     echo "Image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}"
 
-                    echo "=== Utilisation des PVCs ==="
                     df -h ${NODE_MODULES_PVC_PATH} || true
                     df -h ${ARTIFACTS_PVC_PATH} || true
                     df -h ${DOCKER_CACHE_PVC_PATH} || true
@@ -189,7 +143,6 @@ pipeline {
             echo "Échec du build frontend"
             script {
                 sh '''
-                    echo "=== Diagnostic d'erreur ==="
                     echo "Workspace: ${WORK_DIR}"
                     ls -la "${WORK_DIR}" || true
                     echo "Cache node_modules:"
@@ -199,8 +152,6 @@ pipeline {
         }
         cleanup {
             sh '''
-                echo "=== Nettoyage final ==="
-
                 docker logout || true
             '''
         }
