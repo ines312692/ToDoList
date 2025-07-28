@@ -8,16 +8,33 @@ pipeline {
     }
   }
 
+  options {
+    skipDefaultCheckout(true)
+  }
+
   environment {
     DOCKERHUB_USERNAME = 'inestmimi123'
     DOCKERHUB_IMAGE = 'todo-backend'
-    IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
     DOCKER_BUILDKIT = '1'
     WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
     ARTIFACTS_PVC_PATH = '/mnt/artifacts'
   }
 
   stages {
+    stage('Checkout') {
+      steps {
+        container('node') {
+          checkout([
+            $class: 'GitSCM',
+            branches: [[name: 'refs/heads/k8s-backend-optimization']],
+            userRemoteConfigs: [[url: 'https://github.com/ines312692/ToDoList.git']]
+          ])
+        }
+      }
+    }
+
+
+
     stage('Workspace info') {
       steps {
         container('node') {
@@ -32,15 +49,10 @@ pipeline {
           dir('To_Do_List_Backend') {
             sh '''
               echo "=== Installing dependencies using PVC-mounted node_modules ==="
-
-              # Assure le dossier node_modules dans le PVC
               mkdir -p ${WORKSPACE_PVC_PATH}/node_modules
-
-              # Crée lien symbolique local vers node_modules du PVC
               ln -sf ${WORKSPACE_PVC_PATH}/node_modules ./node_modules
 
               if [ -f package.json ]; then
-                # Vérifie si des paquets sont obsolètes
                 outdated=$(npm outdated --json || echo '{}')
                 if [ "$(echo "$outdated" | jq length)" -gt 0 ]; then
                   echo "Outdated dependencies detected, reinstalling..."
@@ -65,9 +77,7 @@ pipeline {
       steps {
         container('docker') {
           withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-            sh '''
-              echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
-            '''
+            sh 'echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin'
           }
         }
       }
@@ -77,14 +87,14 @@ pipeline {
       steps {
         container('docker') {
           dir('To_Do_List_Backend') {
-            sh '''
+            sh """
               echo "=== Building Docker image with BuildKit ==="
-              DOCKER_BUILDKIT=1 docker build \
-                --build-arg BUILDKIT_INLINE_CACHE=1 \
-                --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
-                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+              DOCKER_BUILDKIT=1 docker build \\
+                --build-arg BUILDKIT_INLINE_CACHE=1 \\
+                --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \\
+                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${env.IMAGE_TAG} \\
                 -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest .
-            '''
+            """
           }
         }
       }
@@ -93,10 +103,10 @@ pipeline {
     stage('Push to Docker Hub') {
       steps {
         container('docker') {
-          sh '''
-            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
+          sh """
+            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${env.IMAGE_TAG}
             docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
-          '''
+          """
         }
       }
     }
@@ -104,7 +114,7 @@ pipeline {
     stage('Artifacts Persistence') {
       steps {
         container('node') {
-          sh '''
+          sh """
             if [ -d "To_Do_List_Backend/dist" ]; then
               echo "Saving build artifacts to PVC..."
               mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
@@ -112,7 +122,7 @@ pipeline {
             else
               echo "No dist directory found, skipping artifact persistence"
             fi
-          '''
+          """
         }
       }
     }
@@ -120,9 +130,7 @@ pipeline {
     stage('Cleanup Docker') {
       steps {
         container('docker') {
-          sh '''
-            docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"
-          '''
+          sh 'docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"'
         }
       }
     }
