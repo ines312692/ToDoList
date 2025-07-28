@@ -7,10 +7,6 @@ pipeline {
       serviceAccount 'jenkins-deployer'
     }
   }
-  options {
-      skipDefaultCheckout(true)
-    }
-
 
   environment {
     DOCKERHUB_USERNAME = 'inestmimi123'
@@ -22,21 +18,6 @@ pipeline {
   }
 
   stages {
-  stage('Checkout') {
-    steps {
-      container('node') {
-        checkout([
-          $class: 'GitSCM',
-          branches: [[name: 'refs/heads/k8s-backend-optimization']],
-          userRemoteConfigs: [[
-            url: 'https://github.com/ines312692/ToDoList.git'
-
-          ]]
-        ])
-      }
-    }
-  }
-
     stage('Workspace info') {
       steps {
         container('node') {
