@@ -19,8 +19,8 @@ pipeline {
         DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
         ARTIFACTS_PVC_PATH = '/artifacts'
 
-        // Répertoire de travail dans le workspace Jenkins
-        WORK_DIR = "${WORKSPACE}"
+        // Répertoire de travail dans le workspace Jenkins (sous-répertoire du projet Angular)
+        WORK_DIR = "${WORKSPACE}/To_Do_List"
     }
 
     stages {
@@ -31,7 +31,14 @@ pipeline {
                         sh '''
                             echo "=== Configuration du cache node_modules avec PVC ==="
 
-                            # Créer le lien symbolique vers le cache PVC
+                            # Vérifier que le répertoire To_Do_List existe
+                            if [ ! -d "${WORKSPACE}/To_Do_List" ]; then
+                                echo "ERREUR: Le répertoire To_Do_List n'existe pas dans ${WORKSPACE}"
+                                ls -la "${WORKSPACE}"
+                                exit 1
+                            fi
+
+                            # Créer le lien symbolique vers le cache PVC dans le bon répertoire
                             if [ -d "${WORK_DIR}/node_modules" ] && [ ! -L "${WORK_DIR}/node_modules" ]; then
                                 echo "Suppression de l'ancien répertoire node_modules"
                                 rm -rf "${WORK_DIR}/node_modules"
@@ -47,6 +54,8 @@ pipeline {
                             fi
 
                             echo "Configuration du cache terminée"
+                            echo "Contenu du répertoire de travail:"
+                            ls -la "${WORK_DIR}" | head -10
                         '''
                     }
                 }
