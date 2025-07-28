@@ -16,8 +16,8 @@ pipeline {
 
         NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
         DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
-        WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
-        ARTIFACTS_PVC_PATH = '/mnt/artifacts'
+        WORKSPACE_PVC_PATH = '/workspace'
+        ARTIFACTS_PVC_PATH = '/artifacts'
     }
 
     stages {
@@ -27,16 +27,12 @@ pipeline {
                 script {
                     sh '''
                         echo "=== Utilisation directe du workspace depuis PVC ==="
-                        cd ${WORKSPACE_PVC_PATH}
-
-                        # Création du dossier projet si inexistant
                         mkdir -p ${WORKSPACE_PVC_PATH}/To_Do_List
                         cd ${WORKSPACE_PVC_PATH}/To_Do_List
 
                         echo "=== Lien symbolique pour node_modules ==="
                         mkdir -p ${NODE_MODULES_PVC_PATH}/node_modules
                         if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
-                            echo "Suppression de l'ancien dossier node_modules"
                             rm -rf node_modules
                         fi
                         if [ ! -L "node_modules" ]; then
@@ -55,15 +51,14 @@ pipeline {
                             sh '''
                                 echo "=== Installation des dépendances avec cache PVC ==="
 
-                                # Vérifie si le cache existe
                                 if [ "$(ls -A node_modules)" ]; then
-                                    echo "Le cache existe, vérification des mises à jour éventuelles"
+                                    echo "Vérification des mises à jour"
                                     if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
-                                        echo "Mise à jour détectée, réinstallation..."
+                                        echo "Mise à jour détectée"
                                         rm -rf node_modules/*
                                         npm ci
                                     else
-                                        echo "Cache node_modules valide, pas de réinstallation"
+                                        echo "Cache valide"
                                     fi
                                 else
                                     echo "Pas de cache, installation initiale"
@@ -91,7 +86,7 @@ pipeline {
                 dir("${WORKSPACE_PVC_PATH}/To_Do_List") {
                     script {
                         sh '''
-                            echo "=== Construction de l'image Docker avec BuildKit ==="
+                            echo "=== Build de l'image Docker avec BuildKit ==="
                             DOCKER_BUILDKIT=1 docker build \
                               --build-arg BUILDKIT_INLINE_CACHE=1 \
                               -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
@@ -106,7 +101,7 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 sh '''
-                    echo "=== Poussée de l'image Docker vers Docker Hub ==="
+                    echo "Pushing image..."
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
                 '''
@@ -119,7 +114,7 @@ pipeline {
                     dir("${WORKSPACE_PVC_PATH}/To_Do_List") {
                         script {
                             sh '''
-                                echo "=== Build Angular avec output direct dans le PVC des artefacts ==="
+                                echo "=== Build Angular dans le PVC des artefacts ==="
                                 ARTIFACT_DIR=${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
                                 mkdir -p $ARTIFACT_DIR
                                 npm run build -- --output-path=$ARTIFACT_DIR
@@ -142,15 +137,13 @@ pipeline {
 
     post {
         always {
-            script {
-                sh 'echo "Pipeline terminé."'
-            }
+            sh 'echo "Pipeline terminé."'
         }
         success {
-            echo "Build frontend réussi avec usage direct des PVCs !"
+            echo " Build frontend réussi avec PVCs alignés à la config du pod."
         }
         failure {
-            echo "Échec du build frontend"
+            echo " Échec du build frontend"
         }
     }
 }
