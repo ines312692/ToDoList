@@ -40,8 +40,7 @@ pipeline {
                             echo "Installation dépendances npm avec cache"
                             npm install --prefer-offline --no-audit --progress=false
 
-                            echo "Contenu node_modules après installation :"
-                            ls -la node_modules
+
 
                             cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
                         '''
