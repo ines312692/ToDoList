@@ -42,30 +42,28 @@ pipeline {
 
         stage('Dependencies Installation') {
             steps {
-                container('node') {
-                    script {
-                        sh '''
-                            cd "${WORK_DIR}"
+            container('node') {
+                script {
+                    sh '''
+                        cd "${WORK_DIR}"
 
-                            if [ ! -f "package.json" ]; then
-                                exit 1
-                            fi
+                        if [ ! -f "package.json" ]; then
+                            exit 1
+                        fi
 
-                            if [ -d "${NODE_MODULES_PVC_PATH}" ] && [ "$(ls -A ${NODE_MODULES_PVC_PATH})" ]; then
-                                rm -rf node_modules
-                                mkdir -p node_modules
-                                cp -r ${NODE_MODULES_PVC_PATH}/* node_modules/
-                            else
-                                rm -rf node_modules
-                                npm ci
-                                rm -rf ${NODE_MODULES_PVC_PATH}/*
-                                cp -r node_modules/* ${NODE_MODULES_PVC_PATH}/
-                            fi
+                        # On utilise directement le lien symbolique vers le PVC node_modules
+                        if [ ! -L "node_modules" ]; then
+                            rm -rf node_modules
+                            ln -sf "${NODE_MODULES_PVC_PATH}/cache" node_modules
+                        fi
 
-                            cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
-                        '''
-                    }
+                        npm ci
+
+                        cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
+                    '''
                 }
+            }
+
             }
         }
 
