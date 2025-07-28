@@ -40,31 +40,30 @@ pipeline {
             }
         }
 
-        stage('Dependencies Installation') {
-            steps {
-                container('node') {
-                    script {
-                        sh '''
-                            cd "${WORK_DIR}"
+         stage('Dependencies Installation') {
+                    steps {
+                        container('node') {
+                            script {
+                                sh '''
+                                    cd "${WORK_DIR}"
 
-                            if [ ! -f "package.json" ]; then
-                                exit 1
-                            fi
+                                    if [ ! -f "package.json" ]; then
+                                        echo "package.json absent, arrêt"
+                                        exit 1
+                                    fi
 
-                            if [ ! -L "node_modules" ]; then
-                                rm -rf node_modules
-                                ln -sf "${NODE_MODULES_PVC_PATH}/cache" node_modules
-                            fi
+                                    echo "Configurer cache npm"
+                                    npm config set cache /home/jenkins/.npm --global
 
-                            npm install --prefer-offline --no-audit --progress=false
+                                    echo "Installation dépendances npm avec cache"
+                                    npm install --prefer-offline --no-audit --progress=false
 
-                            cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
-                        '''
+                                    cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
+                                '''
+                            }
+                        }
                     }
                 }
-            }
-        }
-
 
         stage('Docker Login') {
             steps {
