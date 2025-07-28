@@ -18,13 +18,10 @@ pipeline {
   }
 
   stages {
-    stage('Workspace Setup') {
+    stage('Workspace info') {
       steps {
         container('node') {
-          sh '''
-            echo "=== Ensuring node_modules directory exists on PVC ==="
-            mkdir -p ${WORKSPACE_PVC_PATH}/node_modules
-          '''
+          sh 'echo "Workspace is: $WORKSPACE" && ls -la $WORKSPACE && ls -la $WORKSPACE/To_Do_List_Backend'
         }
       }
     }
@@ -32,27 +29,31 @@ pipeline {
     stage('Dependencies Installation') {
       steps {
         container('node') {
-          dir("${WORKSPACE_PVC_PATH}/To_Do_List_Backend") {
+          dir('To_Do_List_Backend') {
             sh '''
-              echo "=== Installing dependencies directly in PVC ==="
-              # Link node_modules from PVC
+              echo "=== Installing dependencies using PVC-mounted node_modules ==="
+
+              # Assure le dossier node_modules dans le PVC
+              mkdir -p ${WORKSPACE_PVC_PATH}/node_modules
+
+              # Crée lien symbolique local vers node_modules du PVC
               ln -sf ${WORKSPACE_PVC_PATH}/node_modules ./node_modules
 
               if [ -f package.json ]; then
-                # Simple check without jq
-                npm outdated > outdated.txt || true
-                if [ -s outdated.txt ]; then
-                  echo "Outdated dependencies detected, updating..."
+                # Vérifie si des paquets sont obsolètes
+                outdated=$(npm outdated --json || echo '{}')
+                if [ "$(echo "$outdated" | jq length)" -gt 0 ]; then
+                  echo "Outdated dependencies detected, reinstalling..."
                   rm -rf node_modules/*
                   npm ci
-                elif [ ! -d node_modules ]; then
-                  echo "No node_modules found, installing..."
+                elif [ ! -d node_modules ] || [ ! "$(ls -A node_modules)" ]; then
+                  echo "No node_modules found, running npm ci..."
                   npm ci
                 else
-                  echo "node_modules cache is valid, skipping installation"
+                  echo "node_modules cache is valid, skipping npm install"
                 fi
               else
-                echo "No package.json found, skipping installation"
+                echo "No package.json found, skipping npm install"
               fi
             '''
           }
@@ -65,10 +66,7 @@ pipeline {
         container('docker') {
           withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
             sh '''
-              echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin || {
-                echo "Docker login failed"
-                exit 1
-              }
+              echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
             '''
           }
         }
@@ -78,15 +76,14 @@ pipeline {
     stage('Build Backend Image') {
       steps {
         container('docker') {
-          dir("${WORKSPACE_PVC_PATH}/To_Do_List_Backend") {
+          dir('To_Do_List_Backend') {
             sh '''
               echo "=== Building Docker image with BuildKit ==="
               DOCKER_BUILDKIT=1 docker build \
                 --build-arg BUILDKIT_INLINE_CACHE=1 \
                 --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
                 -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
-                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
-                .
+                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest .
             '''
           }
         }
@@ -97,32 +94,33 @@ pipeline {
       steps {
         container('docker') {
           sh '''
-            echo "=== Pushing Docker images ==="
-            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} || exit 1
-            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest || exit 1
+            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
+            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
           '''
         }
       }
     }
 
-    stage('Artifacts Persistence & Cleanup') {
+    stage('Artifacts Persistence') {
       steps {
         container('node') {
           sh '''
-            echo "=== Saving build artifacts directly to PVC ==="
-            if [ -d "${WORKSPACE_PVC_PATH}/To_Do_List_Backend/dist" ]; then
+            if [ -d "To_Do_List_Backend/dist" ]; then
+              echo "Saving build artifacts to PVC..."
               mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
-              cp -r ${WORKSPACE_PVC_PATH}/To_Do_List_Backend/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/ || {
-                echo "Failed to copy artifacts"
-              }
+              cp -r To_Do_List_Backend/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
             else
               echo "No dist directory found, skipping artifact persistence"
             fi
           '''
         }
+      }
+    }
+
+    stage('Cleanup Docker') {
+      steps {
         container('docker') {
           sh '''
-            echo "=== Cleaning up Docker resources ==="
             docker system prune -f --filter "until=24h" || echo "Docker cleanup failed"
           '''
         }
@@ -135,7 +133,7 @@ pipeline {
       echo "=== Pipeline completed ==="
     }
     success {
-      echo "Backend image built and pushed successfully with optimized PVC usage!"
+      echo "Backend image built and pushed successfully!"
     }
     failure {
       echo "Backend pipeline failed."
