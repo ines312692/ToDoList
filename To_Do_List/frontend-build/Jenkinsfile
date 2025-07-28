@@ -102,22 +102,21 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                dir('To_Do_List') {
-                    script {
-                        sh '''
-                            echo "=== Build de l'image Docker avec BuildKit ==="
-                            DOCKER_BUILDKIT=1 docker build \
-                              --build-arg BUILDKIT_INLINE_CACHE=1 \
-                              -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
-                              -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
-                              .
-                        '''
+          stage('Build Frontend Image') { // Construction de l'image Docker du frontend
+                    steps {
+                        dir('To_Do_List') { // Se place dans le dossier du frontend
+                            script {
+                                sh '''
+                                    DOCKER_BUILDKIT=1 docker build \
+                                      --build-arg BUILDKIT_INLINE_CACHE=1 \
+                                      -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+                                      -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                                      .
+                                '''
+                            }
+                        }
                     }
                 }
-            }
-        }
 
         stage('Push to Docker Hub') {
             steps {
