@@ -20,13 +20,19 @@ pipeline {
   stages {
   stage('Checkout') {
     steps {
-      checkout([
-        $class: 'GitSCM',
-        branches: [[name: '*/k8s-backend-optimisation']],              // branche à récupérer (ici main)
-        userRemoteConfigs: [[url: 'https://github.com/ines312692/ToDoList.git']]
-      ])
+      container('node') {
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: 'refs/heads/k8s-backend-optimisation']], // branche exacte
+          userRemoteConfigs: [[
+            url: 'https://github.com/ines312692/ToDoList.git'
+            // credentialsId: 'my-git-credentials-id' // si repo privé
+          ]]
+        ])
+      }
     }
   }
+
     stage('Workspace info') {
       steps {
         container('node') {
