@@ -9,192 +9,172 @@ pipeline {
   }
 
   environment {
-      DOCKERHUB_USERNAME = 'inestmimi123'
-      DOCKERHUB_IMAGE = 'todo-backend'
-      IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
-      DOCKER_BUILDKIT = '1'
-      WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
-      DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
-      ARTIFACTS_PVC_PATH = '/mnt/artifacts'
-    }
+    DOCKERHUB_USERNAME = 'inestmimi123'
+    DOCKERHUB_IMAGE = 'todo-backend'
+    IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+    DOCKER_BUILDKIT = '1'
+    WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
+    DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
+    ARTIFACTS_PVC_PATH = '/mnt/artifacts'
+  }
 
-    stages {
-      stage('Workspace Setup & Cache Restoration') {
-        steps {
-          container('node') {
-            script {
-              sh '''
-                echo "=== Setting up workspace with PVC cache ==="
-
-                # Restore workspace from PVC if available
-                if [ -d "${WORKSPACE_PVC_PATH}/backend-build" ]; then
-                  echo "Restoring workspace from PVC..."
-                  rsync -av --delete ${WORKSPACE_PVC_PATH}/backend-build/ ./ || {
-                    echo "Failed to restore workspace, proceeding with empty workspace"
-                  }
-                else
-                  echo "No workspace cache found, starting fresh"
-                  mkdir -p ${WORKSPACE_PVC_PATH}/backend-build
-                fi
-              '''
-            }
-          }
-        }
-      }
-
-      stage('Dependencies Installation') {
-        steps {
-          container('node') {
-            dir('To_Do_List_Backend') {
-              script {
-                sh '''
-                  echo "=== Installing dependencies with cache ==="
-
-                  # Check and install dependencies if needed
-                  if [ -f "package.json" ]; then
-                    if [ -d "${WORKSPACE_PVC_PATH}/backend-build/node_modules" ]; then
-                      echo "Restoring node_modules from PVC cache..."
-                      ln -s ${WORKSPACE_PVC_PATH}/backend-build/node_modules ./node_modules || {
-                        echo "Failed to link node_modules, proceeding with installation"
-                      }
-                    fi
-
-                    # Install or update dependencies
-                    if [ -d "node_modules" ] && [ "$(npm outdated --json | jq length)" -gt 0 ]; then
-                      echo "Outdated dependencies detected, updating..."
-                      rm -rf node_modules/*
-                      npm ci
-                    elif [ ! -d "node_modules" ]; then
-                      echo "No node_modules found, performing initial installation..."
-                      npm ci
-                    else
-                      echo "node_modules cache is valid, skipping installation"
-                    fi
-
-                    # Persist node_modules to PVC
-                    if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
-                      echo "Persisting node_modules to PVC..."
-                      rsync -av --delete node_modules/ ${WORKSPACE_PVC_PATH}/backend-build/node_modules/ || {
-                        echo "Failed to persist node_modules"
-                      }
-                    fi
-                  else
-                    echo "No package.json found, skipping dependency installation"
-                  fi
-                '''
-              }
-            }
-          }
-        }
-      }
-
-      stage('Docker Login') {
-        steps {
-          container('docker') {
-            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-              sh '''
-                echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin || {
-                  echo "Docker login failed"
-                  exit 1
-                }
-              '''
-            }
-          }
-        }
-      }
-
-      stage('Build Backend Image') {
-        steps {
-          container('docker') {
-            dir('To_Do_List_Backend') {
-              script {
-                sh '''
-                  echo "=== Building Docker image with BuildKit ==="
-                  DOCKER_BUILDKIT=1 docker build \
-                    --build-arg BUILDKIT_INLINE_CACHE=1 \
-                    --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
-                    -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
-                    -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
-                    . || {
-                      echo "Docker build failed"
-                      exit 1
-                    }
-                '''
-              }
-            }
-          }
-        }
-      }
-
-      stage('Push to Docker Hub') {
-        steps {
-          container('docker') {
-            sh '''
-              echo "=== Pushing Docker images ==="
-              docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} || {
-                echo "Failed to push ${IMAGE_TAG}"
-                exit 1
-              }
-              docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest || {
-                echo "Failed to push latest"
-                exit 1
-              }
-            '''
-          }
-        }
-      }
-
-      stage('Cache Persistence & Cleanup') {
-        steps {
-          container('node') {
-            script {
-              sh '''
-                echo "=== Persisting workspace and artifacts ==="
-
-                # Persist workspace to PVC
-                mkdir -p ${WORKSPACE_PVC_PATH}/backend-build
-                rsync -av --delete ./ ${WORKSPACE_PVC_PATH}/backend-build/ || {
-                  echo "Failed to persist workspace"
-                }
-
-                # Save build artifacts
-                if [ -d "To_Do_List_Backend/dist" ]; then
-                  echo "Saving build artifacts..."
-                  mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
-                  cp -r To_Do_List_Backend/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/ || {
-                    echo "Failed to save artifacts"
-                  }
-                else
-                  echo "No dist directory found, skipping artifact persistence"
-                fi
-              '''
-            }
-          }
-          container('docker') {
-            sh '''
-              echo "=== Cleaning up Docker resources ==="
-              docker system prune -f --filter "until=24h" || {
-                echo "Docker cleanup failed"
-              }
-            '''
-          }
-        }
-      }
-    }
-    }
-
-    post {
-      always {
-        script {
+  stages {
+    stage('Workspace Setup & Cache Restoration') {
+      steps {
+        container('node') {
           sh '''
-            echo "=== Pipeline completed ==="
+            echo "=== Setting up workspace with PVC cache ==="
+
+            if [ -d "${WORKSPACE_PVC_PATH}/backend-build" ]; then
+              echo "Restoring workspace from PVC..."
+              rsync -av --delete ${WORKSPACE_PVC_PATH}/backend-build/ ./ || {
+                echo "Failed to restore workspace, proceeding with empty workspace"
+              }
+            else
+              echo "No workspace cache found, starting fresh"
+              mkdir -p ${WORKSPACE_PVC_PATH}/backend-build
+            fi
           '''
         }
       }
-      success {
-        echo "Backend image built and pushed successfully with optimized PVC caching!"
-      }
-      failure {
-        echo "Backend pipeline failed."
+    }
+
+    stage('Dependencies Installation') {
+      steps {
+        container('node') {
+          dir('To_Do_List_Backend') {
+            sh '''
+              echo "=== Installing dependencies with cache ==="
+
+              if [ -f "package.json" ]; then
+                if [ -d "${WORKSPACE_PVC_PATH}/backend-build/node_modules" ]; then
+                  echo "Restoring node_modules from PVC cache..."
+                  ln -s ${WORKSPACE_PVC_PATH}/backend-build/node_modules ./node_modules || {
+                    echo "Failed to link node_modules, proceeding with installation"
+                  }
+                fi
+
+                if [ -d "node_modules" ] && [ "$(npm outdated --json | jq length)" -gt 0 ]; then
+                  echo "Outdated dependencies detected, updating..."
+                  rm -rf node_modules/*
+                  npm ci
+                elif [ ! -d "node_modules" ]; then
+                  echo "No node_modules found, performing initial installation..."
+                  npm ci
+                else
+                  echo "node_modules cache is valid, skipping installation"
+                fi
+
+                if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
+                  echo "Persisting node_modules to PVC..."
+                  rsync -av --delete node_modules/ ${WORKSPACE_PVC_PATH}/backend-build/node_modules/ || {
+                    echo "Failed to persist node_modules"
+                  }
+                fi
+              else
+                echo "No package.json found, skipping dependency installation"
+              fi
+            '''
+          }
+        }
       }
     }
+
+    stage('Docker Login') {
+      steps {
+        container('docker') {
+          withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+            sh '''
+              echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin || {
+                echo "Docker login failed"
+                exit 1
+              }
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Build Backend Image') {
+      steps {
+        container('docker') {
+          dir('To_Do_List_Backend') {
+            sh '''
+              echo "=== Building Docker image with BuildKit ==="
+              DOCKER_BUILDKIT=1 docker build \
+                --build-arg BUILDKIT_INLINE_CACHE=1 \
+                --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                .
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        container('docker') {
+          sh '''
+            echo "=== Pushing Docker images ==="
+            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} || {
+              echo "Failed to push ${IMAGE_TAG}"
+              exit 1
+            }
+            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest || {
+              echo "Failed to push latest"
+              exit 1
+            }
+          '''
+        }
+      }
+    }
+
+    stage('Cache Persistence & Cleanup') {
+      steps {
+        container('node') {
+          sh '''
+            echo "=== Persisting workspace and artifacts ==="
+
+            mkdir -p ${WORKSPACE_PVC_PATH}/backend-build
+            rsync -av --delete ./ ${WORKSPACE_PVC_PATH}/backend-build/ || {
+              echo "Failed to persist workspace"
+            }
+
+            if [ -d "To_Do_List_Backend/dist" ]; then
+              echo "Saving build artifacts..."
+              mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
+              cp -r To_Do_List_Backend/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/ || {
+                echo "Failed to save artifacts"
+              }
+            else
+              echo "No dist directory found, skipping artifact persistence"
+            fi
+          '''
+        }
+
+        container('docker') {
+          sh '''
+            echo "=== Cleaning up Docker resources ==="
+            docker system prune -f --filter "until=24h" || {
+              echo "Docker cleanup failed"
+            }
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "=== Pipeline completed ==="
+    }
+    success {
+      echo "Backend image built and pushed successfully with optimized PVC caching!"
+    }
+    failure {
+      echo "Backend pipeline failed."
+    }
+  }
+}
