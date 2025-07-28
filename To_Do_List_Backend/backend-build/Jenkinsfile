@@ -27,7 +27,7 @@ pipeline {
 
             if [ -d "${WORKSPACE_PVC_PATH}/backend-build" ]; then
               echo "Restoring workspace from PVC..."
-              rsync -av --delete ${WORKSPACE_PVC_PATH}/backend-build/ ./ || {
+              cp -r -av --delete ${WORKSPACE_PVC_PATH}/backend-build/ ./ || {
                 echo "Failed to restore workspace, proceeding with empty workspace"
               }
             else
@@ -67,7 +67,7 @@ pipeline {
 
                 if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
                   echo "Persisting node_modules to PVC..."
-                  rsync -av --delete node_modules/ ${WORKSPACE_PVC_PATH}/backend-build/node_modules/ || {
+                  cp -r -av --delete node_modules/ ${WORKSPACE_PVC_PATH}/backend-build/node_modules/ || {
                     echo "Failed to persist node_modules"
                   }
                 fi
@@ -138,7 +138,7 @@ pipeline {
             echo "=== Persisting workspace and artifacts ==="
 
             mkdir -p ${WORKSPACE_PVC_PATH}/backend-build
-            rsync -av --delete ./ ${WORKSPACE_PVC_PATH}/backend-build/ || {
+            cp -r -av --delete ./ ${WORKSPACE_PVC_PATH}/backend-build/ || {
               echo "Failed to persist workspace"
             }
 
