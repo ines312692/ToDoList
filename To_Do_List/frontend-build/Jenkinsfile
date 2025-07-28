@@ -20,50 +20,35 @@ pipeline {
     }
 
     stages {
-        stage('Setup Node Modules Cache') {
+
+
+        stage('Dependencies Installation') {
             steps {
                 container('node') {
                     script {
                         sh '''
-                            if [ -d "${WORK_DIR}/node_modules" ] && [ ! -L "${WORK_DIR}/node_modules" ]; then
-                                rm -rf "${WORK_DIR}/node_modules"
+                            cd "${WORK_DIR}"
+
+                            if [ ! -f "package.json" ]; then
+                                echo "package.json absent, arrêt"
+                                exit 1
                             fi
 
-                            mkdir -p "${NODE_MODULES_PVC_PATH}/cache"
+                            echo "Configurer cache npm dans /home/jenkins/.npm"
+                            npm config set cache /home/jenkins/.npm --global
 
-                            if [ ! -L "${WORK_DIR}/node_modules" ]; then
-                                ln -sf "${NODE_MODULES_PVC_PATH}/cache" "${WORK_DIR}/node_modules"
-                            fi
+                            echo "Installation dépendances npm avec cache"
+                            npm install --prefer-offline --no-audit --progress=false
+
+                            echo "Contenu node_modules après installation :"
+                            ls -la node_modules
+
+                            cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
                         '''
                     }
                 }
             }
         }
-
-         stage('Dependencies Installation') {
-                    steps {
-                        container('node') {
-                            script {
-                                sh '''
-                                    cd "${WORK_DIR}"
-
-                                    if [ ! -f "package.json" ]; then
-                                        echo "package.json absent, arrêt"
-                                        exit 1
-                                    fi
-
-                                    echo "Configurer cache npm"
-                                    npm config set cache /home/jenkins/.npm --global
-
-                                    echo "Installation dépendances npm avec cache"
-                                    npm install --prefer-offline --no-audit --progress=false
-
-                                    cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
-                                '''
-                            }
-                        }
-                    }
-                }
 
         stage('Docker Login') {
             steps {
@@ -127,7 +112,7 @@ pipeline {
             }
         }
         success {
-            echo "Build frontend réussi avec optimisation PVC complète"
+            echo "Build frontend réussi avec cache npm optimisé"
             script {
                 sh '''
                     echo "Artefacts disponibles dans: ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}"
@@ -141,15 +126,13 @@ pipeline {
                 sh '''
                     echo "Workspace: ${WORK_DIR}"
                     ls -la "${WORK_DIR}" || true
-                    echo "Cache node_modules:"
-                    ls -la "${NODE_MODULES_PVC_PATH}" || true
+                    echo "Cache npm dans /home/jenkins/.npm :"
+                    ls -la /home/jenkins/.npm || true
                 '''
             }
         }
         cleanup {
-            sh '''
-                docker logout || true
-            '''
+            sh 'docker logout || true'
         }
     }
 }
