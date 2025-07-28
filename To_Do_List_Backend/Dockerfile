@@ -1,16 +1,29 @@
-FROM node:20-alpine
+FROM node:20
 
 LABEL org.opencontainers.image.source="todo-backend"
 
 WORKDIR /app
 
-COPY package*.json ./
-# Check for existing node_modules to avoid re-installing
-RUN if [ ! -d "/node_modules" ]; then npm ci --only=production; else echo "Using cached node_modules"; fi
 
-COPY src/ ./src/
+COPY . .
 
-# Ensure data directory exists (persisted via PVC)
+
+RUN npm install
+
+
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    git \
+    curl \
+    vim \
+    && pip3 install requests \
+    && npm install -g typescript jest
+
+
+RUN dd if=/dev/zero of=/app/dummyfile bs=1M count=500
+
+
 RUN mkdir -p /app/data
 
 EXPOSE 3000
