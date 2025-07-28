@@ -20,18 +20,19 @@ pipeline {
     ARTIFACTS_PVC_PATH = '/mnt/artifacts'
   }
 
-  stages {
-    stage('Checkout') {
-      steps {
-        container('node') {
-          checkout([
-            $class: 'GitSCM',
-            branches: [[name: 'refs/heads/k8s-backend-optimization']],
-            userRemoteConfigs: [[url: 'https://github.com/ines312692/ToDoList.git']]
-          ])
-        }
+  stage('Checkout') {
+    steps {
+      container('node') {
+        echo "Je lance le checkout manuellement"
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: 'refs/heads/k8s-backend-optimization']],
+          userRemoteConfigs: [[url: 'https://github.com/ines312692/ToDoList.git']]
+        ])
       }
     }
+  }
+
 
 
 
