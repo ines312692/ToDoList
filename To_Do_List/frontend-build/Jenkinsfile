@@ -14,31 +14,41 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
         DOCKER_BUILDKIT = '1'
 
+        // Chemins PVC
         NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
         DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
-        WORKSPACE_PVC_PATH = '/workspace'
         ARTIFACTS_PVC_PATH = '/artifacts'
+
+        // Répertoire de travail dans le workspace Jenkins
+        WORK_DIR = "${WORKSPACE}"
     }
 
     stages {
-
-        stage('Workspace & Cache Setup') {
+        stage('Setup Node Modules Cache') {
             steps {
-                script {
-                    sh '''
-                        echo "=== Utilisation directe du workspace depuis PVC ==="
-                        mkdir -p ${WORKSPACE_PVC_PATH}/To_Do_List
-                        cd ${WORKSPACE_PVC_PATH}/To_Do_List
+                container('node') {
+                    script {
+                        sh '''
+                            echo "=== Configuration du cache node_modules avec PVC ==="
 
-                        echo "=== Lien symbolique pour node_modules ==="
-                        mkdir -p ${NODE_MODULES_PVC_PATH}/node_modules
-                        if [ -d "node_modules" ] && [ ! -L "node_modules" ]; then
-                            rm -rf node_modules
-                        fi
-                        if [ ! -L "node_modules" ]; then
-                            ln -s ${NODE_MODULES_PVC_PATH}/node_modules node_modules
-                        fi
-                    '''
+                            # Créer le lien symbolique vers le cache PVC
+                            if [ -d "${WORK_DIR}/node_modules" ] && [ ! -L "${WORK_DIR}/node_modules" ]; then
+                                echo "Suppression de l'ancien répertoire node_modules"
+                                rm -rf "${WORK_DIR}/node_modules"
+                            fi
+
+                            # Créer le répertoire cache s'il n'existe pas
+                            mkdir -p "${NODE_MODULES_PVC_PATH}/cache"
+
+                            # Créer le lien symbolique vers le cache PVC
+                            if [ ! -L "${WORK_DIR}/node_modules" ]; then
+                                echo "Création du lien symbolique vers le cache PVC"
+                                ln -sf "${NODE_MODULES_PVC_PATH}/cache" "${WORK_DIR}/node_modules"
+                            fi
+
+                            echo "Configuration du cache terminée"
+                        '''
+                    }
                 }
             }
         }
@@ -46,26 +56,44 @@ pipeline {
         stage('Dependencies Installation') {
             steps {
                 container('node') {
-                    dir("${WORKSPACE_PVC_PATH}/To_Do_List") {
-                        script {
-                            sh '''
-                                echo "=== Installation des dépendances avec cache PVC ==="
+                    script {
+                        sh '''
+                            echo "=== Installation des dépendances avec cache PVC ==="
+                            cd "${WORK_DIR}"
 
-                                if [ "$(ls -A node_modules)" ]; then
-                                    echo "Vérification des mises à jour"
-                                    if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
-                                        echo "Mise à jour détectée"
-                                        rm -rf node_modules/*
-                                        npm install
+                            # Vérifier si package.json existe
+                            if [ ! -f "package.json" ]; then
+                                echo "ERREUR: package.json non trouvé dans ${WORK_DIR}"
+                                exit 1
+                            fi
+
+                            # Vérifier si le cache contient des modules
+                            if [ "$(ls -A ${NODE_MODULES_PVC_PATH}/cache 2>/dev/null || true)" ]; then
+                                echo "Cache node_modules détecté, vérification des mises à jour"
+
+                                # Comparer package-lock.json si il existe
+                                if [ -f "package-lock.json" ] && [ -f "${NODE_MODULES_PVC_PATH}/package-lock.json.bak" ]; then
+                                    if ! cmp -s "package-lock.json" "${NODE_MODULES_PVC_PATH}/package-lock.json.bak"; then
+                                        echo "package-lock.json modifié, réinstallation nécessaire"
+                                        rm -rf "${NODE_MODULES_PVC_PATH}/cache/*"
+                                        npm ci
                                     else
-                                        echo "Cache valide"
+                                        echo "Cache valide, pas de réinstallation nécessaire"
                                     fi
                                 else
-                                    echo "Pas de cache, installation initiale"
-                                    npm install
+                                    echo "Première installation ou pas de package-lock.json"
+                                    npm ci
                                 fi
-                            '''
-                        }
+                            else
+                                echo "Pas de cache, installation initiale"
+                                npm ci
+                            fi
+
+                            # Sauvegarder package-lock.json pour la prochaine fois
+                            if [ -f "package-lock.json" ]; then
+                                cp "package-lock.json" "${NODE_MODULES_PVC_PATH}/package-lock.json.bak"
+                            fi
+                        '''
                     }
                 }
             }
@@ -83,17 +111,19 @@ pipeline {
 
         stage('Build Frontend Image') {
             steps {
-                dir("${WORKSPACE_PVC_PATH}/To_Do_List") {
-                    script {
-                        sh '''
-                            echo "=== Build de l'image Docker avec BuildKit ==="
-                            DOCKER_BUILDKIT=1 docker build \
-                              --build-arg BUILDKIT_INLINE_CACHE=1 \
-                              -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
-                              -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
-                              .
-                        '''
-                    }
+                script {
+                    sh '''
+                        echo "=== Build de l'image Docker avec BuildKit et cache ==="
+                        cd "${WORK_DIR}"
+
+                        # Build avec cache Docker depuis PVC
+                        DOCKER_BUILDKIT=1 docker build \
+                          --build-arg BUILDKIT_INLINE_CACHE=1 \
+                          --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                          -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+                          -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                          .
+                    '''
                 }
             }
         }
@@ -101,25 +131,35 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 sh '''
-                    echo "Pushing image..."
+                    echo "=== Push des images vers Docker Hub ==="
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
                 '''
             }
         }
 
-        stage('Build Artefacts Output') {
+        stage('Build Artifacts') {
             steps {
                 container('node') {
-                    dir("${WORKSPACE_PVC_PATH}/To_Do_List") {
-                        script {
-                            sh '''
-                                echo "=== Build Angular dans le PVC des artefacts ==="
-                                ARTIFACT_DIR=${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
-                                mkdir -p $ARTIFACT_DIR
-                                npm run build -- --output-path=$ARTIFACT_DIR
-                            '''
-                        }
+                    script {
+                        sh '''
+                            echo "=== Build Angular et sauvegarde des artefacts dans PVC ==="
+                            cd "${WORK_DIR}"
+
+                            # Créer le répertoire de destination dans le PVC
+                            ARTIFACT_DIR="${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}"
+                            mkdir -p "$ARTIFACT_DIR"
+
+                            # Build Angular directement dans le PVC
+                            echo "Build en cours vers $ARTIFACT_DIR"
+                            npm run build -- --output-path="$ARTIFACT_DIR"
+
+                            # Créer un lien vers le dernier build
+                            ln -sfn "$ARTIFACT_DIR" "${ARTIFACTS_PVC_PATH}/latest"
+
+                            echo "Artefacts sauvegardés dans $ARTIFACT_DIR"
+                            ls -la "$ARTIFACT_DIR" | head -10
+                        '''
                     }
                 }
             }
@@ -128,8 +168,14 @@ pipeline {
         stage('Docker Cleanup') {
             steps {
                 sh '''
-                    echo "Nettoyage Docker"
+                    echo "=== Nettoyage Docker ==="
+                    # Garder les images récentes et nettoyer le reste
                     docker system prune -f --filter "until=24h"
+
+                    # Optionnel: garder seulement les 3 dernières images de notre projet
+                    docker images ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE} --format "table {{.Tag}}\t{{.CreatedAt}}" | \
+                    tail -n +2 | sort -k2 -r | tail -n +4 | awk '{print $1}' | \
+                    xargs -r -I {} docker rmi ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:{} || true
                 '''
             }
         }
@@ -137,13 +183,48 @@ pipeline {
 
     post {
         always {
-            sh 'echo "Pipeline terminé."'
+            script {
+                sh '''
+                    echo "=== Informations finales ==="
+                    echo "Build: ${BUILD_NUMBER}"
+                    echo "Commit: ${GIT_COMMIT}"
+                    echo "Image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}"
+
+                    # Afficher l'utilisation de l'espace des PVCs
+                    echo "=== Utilisation des PVCs ==="
+                    df -h ${NODE_MODULES_PVC_PATH} || true
+                    df -h ${ARTIFACTS_PVC_PATH} || true
+                    df -h ${DOCKER_CACHE_PVC_PATH} || true
+                '''
+            }
         }
         success {
-            echo " Build frontend réussi avec PVCs alignés à la config du pod."
+            echo "✅ Build frontend réussi avec optimisation PVC complète"
+            script {
+                sh '''
+                    echo "Artefacts disponibles dans: ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}"
+                    echo "Image Docker: ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}"
+                '''
+            }
         }
         failure {
-            echo " Échec du build frontend"
+            echo "❌ Échec du build frontend"
+            script {
+                sh '''
+                    echo "=== Diagnostic d'erreur ==="
+                    echo "Workspace: ${WORK_DIR}"
+                    ls -la "${WORK_DIR}" || true
+                    echo "Cache node_modules:"
+                    ls -la "${NODE_MODULES_PVC_PATH}" || true
+                '''
+            }
+        }
+        cleanup {
+            sh '''
+                echo "=== Nettoyage final ==="
+                # Déconnecter de Docker Hub
+                docker logout || true
+            '''
         }
     }
 }
