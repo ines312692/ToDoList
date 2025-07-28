@@ -8,19 +8,19 @@ pipeline {
         }
     }
 
-    environment { // Variables d'environnement globales
-        DOCKERHUB_USERNAME = 'inestmimi123' // Nom d'utilisateur DockerHub
-        DOCKERHUB_IMAGE = 'todo-frontend' // Nom de l'image Docker
-        IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}" // Tag de l'image (build + commit)
-        DOCKER_BUILDKIT = '1' // Active BuildKit pour Docker
-        NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache' // Chemin du cache node_modules
-        DOCKER_CACHE_PVC_PATH = '/var/lib/docker' // Chemin du cache Docker
-        WORKSPACE_PVC_PATH = '/mnt/workspace_cache' // Chemin du cache workspace
-        ARTIFACTS_PVC_PATH = '/mnt/artifacts' // Chemin du cache des artefacts
+    environment {
+        DOCKERHUB_USERNAME = 'inestmimi123'
+        DOCKERHUB_IMAGE = 'todo-frontend'
+        IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+        DOCKER_BUILDKIT = '1'
+        NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
+        DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
+        WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
+        ARTIFACTS_PVC_PATH = '/mnt/artifacts'
     }
 
-    stages { // Définition des étapes du pipeline
-        stage('Workspace Setup & Cache Restoration') { // Préparation du workspace et restauration du cache
+    stages {
+        stage('Workspace Setup & Cache Restoration') {
             steps {
                 script {
                     sh '''
@@ -47,10 +47,10 @@ pipeline {
             }
         }
 
-       stage('Dependencies Installation') { // Installation des dépendances npm
+       stage('Dependencies Installation') {
            steps {
-               container('node') { // Utilise le conteneur Node.js
-                   dir('To_Do_List') { // Se place dans le dossier du frontend
+               container('node') {
+                   dir('To_Do_List') {
                        script {
                            sh '''
 
@@ -89,7 +89,7 @@ pipeline {
            }
        }
 
-        stage('Docker Login') { // Connexion à DockerHub
+        stage('Docker Login') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                     sh '''
@@ -99,9 +99,9 @@ pipeline {
             }
         }
 
-        stage('Build Frontend Image') { // Construction de l'image Docker du frontend
+        stage('Build Frontend Image') {
             steps {
-                dir('To_Do_List') { // Se place dans le dossier du frontend
+                dir('To_Do_List') {
                     script {
                         sh '''
                             DOCKER_BUILDKIT=1 docker build \
@@ -115,7 +115,7 @@ pipeline {
             }
         }
 
-        stage('Push to Docker Hub') { // Pousse l'image sur DockerHub
+        stage('Push to Docker Hub') {
             steps {
                 sh '''
                     echo "Pushing frontend image..."
@@ -125,7 +125,7 @@ pipeline {
             }
         }
 
-        stage('Cache Persistence & Cleanup') { // Sauvegarde du cache et nettoyage
+        stage('Cache Persistence & Cleanup') {
             steps {
                 script {
                     sh '''
@@ -149,7 +149,7 @@ pipeline {
         }
     }
 
-    post { // Actions post-pipeline
+    post {
         always {
             script {
                 sh '''
