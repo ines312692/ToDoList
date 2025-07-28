@@ -69,6 +69,28 @@ pipeline {
                 }
             }
         }
+        stage('Debug node_modules') {
+                    steps {
+                        container('node') {
+                            script {
+                                sh '''
+                                    echo "=== DEBUG : Contenu du dossier node_modules ==="
+                                    ls -lah To_Do_List/node_modules | head -20
+
+                                    echo "=== DEBUG : Emplacement réel du lien symbolique node_modules ==="
+                                    readlink -f To_Do_List/node_modules
+
+                                    echo "=== DEBUG : Contenu réel du PVC monté /mnt/node_modules_cache/node_modules ==="
+                                    ls -lah /mnt/node_modules_cache/node_modules | head -20
+
+                                    echo "=== DEBUG : Fichiers package.json et lock ==="
+                                    ls -lah To_Do_List/package*.json
+                                '''
+                            }
+                        }
+                    }
+        }
+
 
         stage('Docker Login') {
             steps {
