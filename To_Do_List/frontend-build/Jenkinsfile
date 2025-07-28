@@ -56,13 +56,13 @@ pipeline {
                                     if [ "$(npm outdated --json | jq length)" -gt 0 ]; then
                                         echo "Mise à jour détectée"
                                         rm -rf node_modules/*
-                                        npm ci
+                                        npm install
                                     else
                                         echo "Cache valide"
                                     fi
                                 else
                                     echo "Pas de cache, installation initiale"
-                                    npm ci
+                                    npm install
                                 fi
                             '''
                         }
