@@ -1,0 +1,88 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'jenkins-frontend-build'
+      defaultContainer 'docker'
+      namespace 'jenkins-developer'
+      serviceAccount 'jenkins-deployer'
+    }
+  }
+
+  environment {
+    DOCKERHUB_USERNAME = 'inestmimi123'
+    DOCKERHUB_IMAGE = 'todo-frontend'
+    IMAGE_TAG = 'latest'
+    DOCKER_BUILDKIT = '1'
+  }
+
+  stages {
+    stage('Checkout & Cache Preparation') {
+      steps {
+        script {
+          sh '''
+            echo "Using persistent workspace at /workspace/frontend-build"
+            mkdir -p /workspace/frontend-build
+            cp -r . /workspace/frontend-build/ || true
+          '''
+        }
+      }
+    }
+
+    stage('Docker Login') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+          sh '''
+            echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin
+          '''
+        }
+      }
+    }
+
+    stage('Build Frontend Image') {
+      steps {
+        dir('To_Do_List') {
+          sh '''
+            echo "Building frontend Docker image with Docker BuildKit..."
+            DOCKER_BUILDKIT=1 docker build \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              -t $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG \
+              .
+          '''
+        }
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        sh '''
+          echo "Pushing frontend image..."
+          docker push $DOCKERHUB_USERNAME/$DOCKERHUB_IMAGE:$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Cache Cleanup') {
+      steps {
+        sh '''
+          echo "Cleaning up old Docker images to preserve cache space..."
+          docker system prune -f --filter "until=24h"
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      sh '''
+        echo "Saving frontend build artifacts to persistent storage..."
+        cp -r . /workspace/frontend-build-$(date +%Y%m%d-%H%M%S)/ || true
+      '''
+    }
+    success {
+      echo "Frontend image built and pushed successfully with persistent cache!"
+    }
+    failure {
+      echo "Frontend build or push failed."
+    }
+  }
+}

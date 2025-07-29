@@ -78,6 +78,8 @@ ToDo List/
 ├── docker-compose.yml          # Docker Compose configuration
 ├── Jenkinsfile                 # Jenkins CI/CD pipeline
 └── README.md                   # Project documentation
+└── project-A                   # Project sans node modules
+
 ```
 
 ## Setup and Installation

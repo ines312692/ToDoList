@@ -1,0 +1,25 @@
+<app-header></app-header>
+<main>
+  @if (error) {
+    <div class="error-message">
+      <p>{{error}}</p>
+      <button (click)="loadUsers()">Retry</button>
+    </div>
+  } @else if (loading) {
+    <p class="loading">Loading users...</p>
+  } @else {
+    <ul id="users">
+      @for (user of users; track user.id) {
+        <li>
+          <app-user [user]="user" [selected]="selectedUserId===user.id" (select)="onSelectUser($event)" />
+        </li>
+      }
+    </ul>
+
+    @if (selectedUserId) {
+      <app-tasks [username]="username" [userId]="selectedUserId"></app-tasks>
+    }@else{
+      <p id="fallback">Select a user to see their tasks!</p>
+    }
+  }
+</main>
