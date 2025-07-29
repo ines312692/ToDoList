@@ -33,12 +33,11 @@ pipeline {
                                 echo "package.json absent, arrêt"
                                 exit 1
                             fi
-                            echo "Configurer cache PVC"
-
-                            npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
-                            echo "Installation dépendances npm avec cache"
-                            npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --no-audit
-                            npm run build
+                             ln -sfn /mnt/node_modules_cache/node_modules ./node_modules
+                             npm config set cache /mnt/node_modules_cache/.npm --global
+                             echo "Installation dépendances npm avec cache"
+                             npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --no-audit
+                             npm run build
 
 
                         '''
