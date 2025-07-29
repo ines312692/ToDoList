@@ -33,14 +33,11 @@ pipeline {
                                 echo "package.json absent, arrêt"
                                 exit 1
                             fi
-
                             echo "Configurer cache npm dans /home/jenkins/.npm"
-                            npm config set cache /home/jenkins/.npm --global
 
+                            npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
                             echo "Installation dépendances npm avec cache"
-                            npm install --prefer-offline --no-audit --progress=false
-
-
+                            npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --no-audit
 
                             cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
                         '''
