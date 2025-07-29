@@ -33,7 +33,7 @@ pipeline {
                                 echo "package.json absent, arrêt"
                                 exit 1
                             fi
-                            echo "Configurer cache npm dans /home/jenkins/.npm"
+                            echo "Configurer cache PVC"
 
                             npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
                             echo "Installation dépendances npm avec cache"
