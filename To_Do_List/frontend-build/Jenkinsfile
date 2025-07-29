@@ -38,8 +38,9 @@ pipeline {
                             npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
                             echo "Installation dépendances npm avec cache"
                             npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --no-audit
+                            npm run build
 
-                            cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
+
                         '''
                     }
                 }
