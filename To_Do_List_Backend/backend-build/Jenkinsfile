@@ -34,7 +34,7 @@ pipeline {
 
               npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
               echo "Installation des dépendances npm avec cache partagé PVC"
-              npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm
+              npm ci --prefer-offline --loglevel verbose --cache=${NODE_MODULES_PVC_PATH}/.npm
             '''
           }
         }

@@ -6,17 +6,17 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      jenkins/label: jenkins-backend-build
+      jenkins/role: backend
   policyTypes:
     - Egress
   egress:
     - to:
         - ipBlock:
-            cidr: 10.0.0.0/8    # Autorise le trafic interne au cluster (DNS, services)
+            cidr: 10.0.0.0/8       # réseau interne cluster
         - ipBlock:
-            cidr: 127.0.0.0/8   # Loopback local
+            cidr: 127.0.0.0/8      # loopback local
       ports:
         - protocol: UDP
-          port: 53              # DNS
+          port: 53                 # DNS
         - protocol: TCP
           port: 53
