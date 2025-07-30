@@ -4,9 +4,7 @@ metadata:
   name: deny-all-egress
   namespace: jenkins-developer
 spec:
-  podSelector:
-    matchLabels:
-      jenkins/role: backend   # adapte selon le label exact de ton pod
+  podSelector: {}
   policyTypes:
     - Egress
-  egress: []   # Pas de règle egress => bloque tout trafic sortant
+  egress: []
