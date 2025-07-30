@@ -36,7 +36,7 @@ pipeline {
 
                              npm config set cache /mnt/node_modules_cache/.npm --global
                              echo "Installation dépendances npm avec cache"
-                             npm ci
+                             npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm
                              npm run build
 
 
