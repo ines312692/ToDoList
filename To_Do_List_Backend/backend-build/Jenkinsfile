@@ -13,35 +13,28 @@ pipeline {
     DOCKERHUB_IMAGE = 'todo-backend'
     IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
     DOCKER_BUILDKIT = '1'
-    WORKSPACE_PVC_PATH = '/mnt/workspace_cache'
+    NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
     ARTIFACTS_PVC_PATH = '/mnt/artifacts'
+    WORK_DIR = "${WORKSPACE}/To_Do_List_Backend"
   }
 
   stages {
-    stage('Workspace info') {
-      steps {
-        container('node') {
-          sh 'echo "Workspace is: $WORKSPACE" && ls -la $WORKSPACE && ls -la $WORKSPACE/To_Do_List_Backend'
-        }
-      }
-    }
 
     stage('Dependencies Installation') {
       steps {
         container('node') {
-          dir('To_Do_List_Backend') {
+          script {
             sh '''
-              mkdir -p ${WORKSPACE_PVC_PATH}/node_modules
-              ln -sf ${WORKSPACE_PVC_PATH}/node_modules ./node_modules
-              if [ -f package.json ]; then
-                outdated=$(npm outdated --json || echo '{}')
-                if [ "$(echo "$outdated" | jq length)" -gt 0 ]; then
-                  rm -rf node_modules/*
-                  npm ci
-                elif [ ! -d node_modules ] || [ ! "$(ls -A node_modules)" ]; then
-                  npm ci
-                fi
+              cd "${WORK_DIR}"
+
+              if [ ! -f "package.json" ]; then
+                  echo "package.json manquant. Échec."
+                  exit 1
               fi
+
+              npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
+              echo "Installation des dépendances npm avec cache partagé PVC"
+              npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm
             '''
           }
         }
@@ -88,9 +81,9 @@ pipeline {
       steps {
         container('node') {
           sh '''
-            if [ -d "To_Do_List_Backend/dist" ]; then
+            if [ -d "${WORK_DIR}/dist" ]; then
               mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
-              cp -r To_Do_List_Backend/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
+              cp -r ${WORK_DIR}/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
             fi
           '''
         }
@@ -100,7 +93,9 @@ pipeline {
     stage('Cleanup Docker') {
       steps {
         container('docker') {
-          sh 'docker system prune -f --filter "until=24h" || true'
+          sh '''
+            docker system prune -f --filter "until=24h" || true
+          '''
         }
       }
     }
@@ -108,13 +103,16 @@ pipeline {
 
   post {
     always {
-      echo "=== Pipeline completed ==="
+      echo "=== Pipeline terminé ==="
     }
     success {
-      echo "Backend image built and pushed successfully!"
+      echo "Image backend construite et poussée avec succès !"
     }
     failure {
-      echo "Backend pipeline failed."
+      echo "Échec du pipeline backend."
+    }
+    cleanup {
+      sh 'docker logout || true'
     }
   }
 }
