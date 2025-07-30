@@ -1,22 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: deny-egress-internet
+  name: deny-all-egress
   namespace: jenkins-developer
 spec:
   podSelector:
     matchLabels:
-      jenkins/role: backend
+      jenkins/role: backend   # adapte selon le label exact de ton pod
   policyTypes:
     - Egress
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 10.0.0.0/8       # réseau interne cluster
-        - ipBlock:
-            cidr: 127.0.0.0/8      # loopback local
-      ports:
-        - protocol: UDP
-          port: 53                 # DNS
-        - protocol: TCP
-          port: 53
+  egress: []   # Pas de règle egress => bloque tout trafic sortant
