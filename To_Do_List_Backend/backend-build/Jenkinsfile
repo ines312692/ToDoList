@@ -34,7 +34,9 @@ pipeline {
 
               npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
               echo "Installation des dépendances npm avec cache partagé PVC"
-              npm i --loglevel verbose --cache=${NODE_MODULES_PVC_PATH}/.npm
+               mkdir -p ${NODE_MODULES_PVC_PATH}/.npm
+               chmod -R 777 ${NODE_MODULES_PVC_PATH}/.npm
+               npm ci --cache=${NODE_MODULES_PVC_PATH}/.npm --prefer-offline --loglevel verbose
               echo " Vérification du contenu du cache npm partagé PVC:"
               du -sh ${NODE_MODULES_PVC_PATH}/.npm
               ls -la ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 | head -10
