@@ -63,6 +63,21 @@ pipeline {
         }
       }
     }
+    stage('List Cached Packages Versions') {
+      steps {
+        container('node') {
+          sh '''
+            echo "Extraction des noms et versions des paquets dans le cache npm partagé..."
+            find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/content-v2/ -type f -exec zcat {} \\; 2>/dev/null | \
+            grep -E '"name":|"version":' | \
+            paste - - | \
+            sed -E 's/.*"name": "(.*)".*"version": "(.*)".*/\\1@\\2/' | \
+            sort | uniq
+          '''
+        }
+      }
+    }
+
 
 
     stage('Docker Login') {
