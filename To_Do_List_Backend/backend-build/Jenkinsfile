@@ -38,7 +38,7 @@ pipeline {
               chmod -R 777 ${NODE_MODULES_PVC_PATH}/.npm
               npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --loglevel verbose
 
-              echo " Vérification du contenu du cache npm partagé PVC:"
+              echo "Vérification du contenu du cache npm partagé PVC:"
               du -sh ${NODE_MODULES_PVC_PATH}/.npm
               ls -la ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 | head -10
             '''
@@ -47,42 +47,121 @@ pipeline {
       }
     }
 
-    stage('List Cache node_modules') {
+    stage('List Cache Statistics') {
       steps {
         container('node') {
           sh '''
-            echo "Listing du contenu du cache npm partagé :"
-            find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 -type f | head -20
+            echo "=== STATISTIQUES DU CACHE NPM ==="
+            echo "Taille totale du cache:"
+            du -sh ${NODE_MODULES_PVC_PATH}/.npm
 
-            echo "Nombre total de fichiers dans le cache npm :"
+            echo "Nombre de fichiers dans index-v5:"
             find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 -type f | wc -l
 
-            echo "Répertoires présents dans le cache npm :"
-            ls -l ${NODE_MODULES_PVC_PATH}/.npm/_cacache/
+            echo "Nombre de fichiers dans content-v2:"
+            find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/content-v2 -type f | wc -l
+
+            echo "Répertoires présents dans le cache:"
+            ls -la ${NODE_MODULES_PVC_PATH}/.npm/_cacache/
           '''
         }
       }
     }
-    stage('List Cached Packages Versions') {
+
+    stage('List Installed Packages') {
       steps {
         container('node') {
           sh '''
-          echo "Extraction propre des noms et versions des paquets dans le cache npm partagé..."
+            cd "${WORK_DIR}"
+            echo "=== PACKAGES INSTALLÉS DANS LE PROJET ==="
 
-          find /mnt/node_modules_cache/.npm/_cacache/content-v2/ -type f | while read file; do
-            zcat "$file" 2>/dev/null | awk '
-              BEGIN {name=""; version=""}
-              /"name":/ {match($0, /"name": *"([^"]+)"/, arr); if(arr[1]) name=arr[1]}
-              /"version":/ {match($0, /"version": *"([^"]+)"/, arr); if(arr[1]) version=arr[1]}
-              name!="" && version!="" {print name "@" version; name=""; version=""}
-            '
-          done | sort | uniq
+            # Afficher les dépendances depuis package.json
+            echo "Dépendances de production depuis package.json:"
+            if command -v jq > /dev/null 2>&1; then
+              jq -r '.dependencies // {} | to_entries[] | "\\(.key): \\(.value)"' package.json
+            else
+              echo "jq non disponible, affichage brut:"
+              grep -A 50 '"dependencies"' package.json | grep -v '^--$' | head -20
+            fi
+
+            echo ""
+            echo "Dépendances de développement depuis package.json:"
+            if command -v jq > /dev/null 2>&1; then
+              jq -r '.devDependencies // {} | to_entries[] | "\\(.key): \\(.value)"' package.json
+            else
+              echo "jq non disponible, affichage brut:"
+              grep -A 50 '"devDependencies"' package.json | grep -v '^--$' | head -20
+            fi
           '''
         }
       }
     }
 
+    stage('List Actually Installed Versions') {
+      steps {
+        container('node') {
+          sh '''
+            cd "${WORK_DIR}"
+            echo "=== VERSIONS RÉELLEMENT INSTALLÉES ==="
 
+            # Utiliser npm list pour voir les packages installés
+            echo "Packages installés (niveau racine):"
+            npm list --depth=0 2>/dev/null || echo "Erreur avec npm list, tentative alternative..."
+
+            echo ""
+            echo "Packages avec leurs versions exactes:"
+            if [ -f "package-lock.json" ]; then
+              echo "Extraction depuis package-lock.json:"
+              if command -v jq > /dev/null 2>&1; then
+                jq -r '.packages | to_entries[] | select(.key != "") | "\\(.key): \\(.value.version // "N/A")"' package-lock.json | head -20
+              else
+                echo "package-lock.json présent mais jq non disponible"
+                head -50 package-lock.json
+              fi
+            else
+              echo "package-lock.json non trouvé"
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Extract Cache Package Info') {
+      steps {
+        container('node') {
+          sh '''
+            echo "=== EXTRACTION DES INFOS DU CACHE NPM ==="
+
+            # Méthode alternative pour extraire les infos du cache
+            echo "Tentative d'extraction des packages depuis le cache:"
+
+            # Utiliser npm cache ls si disponible
+            if npm cache ls > /dev/null 2>&1; then
+              echo "Packages dans le cache npm:"
+              npm cache ls | head -20
+            else
+              echo "npm cache ls non disponible"
+            fi
+
+            # Alternative: chercher les fichiers package.json dans node_modules si ils existent
+            if [ -d "${WORK_DIR}/node_modules" ]; then
+              echo "Packages installés dans node_modules:"
+              find "${WORK_DIR}/node_modules" -name "package.json" -maxdepth 2 | head -10 | while read pkg; do
+                if command -v jq > /dev/null 2>&1; then
+                  name=$(jq -r '.name // "unknown"' "$pkg")
+                  version=$(jq -r '.version // "unknown"' "$pkg")
+                  echo "$name@$version"
+                else
+                  echo "Package trouvé: $pkg"
+                fi
+              done
+            else
+              echo "Répertoire node_modules non trouvé"
+            fi
+          '''
+        }
+      }
+    }
 
     stage('Docker Login') {
       steps {
@@ -127,6 +206,9 @@ pipeline {
             if [ -d "${WORK_DIR}/dist" ]; then
               mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
               cp -r ${WORK_DIR}/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
+              echo "Artifacts sauvegardés dans ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/"
+            else
+              echo "Aucun répertoire dist trouvé à sauvegarder"
             fi
           '''
         }
@@ -147,6 +229,16 @@ pipeline {
   post {
     always {
       echo "=== Pipeline terminé ==="
+      // Afficher un résumé final
+      container('node') {
+        sh '''
+          echo "=== RÉSUMÉ FINAL ==="
+          echo "Build Number: ${BUILD_NUMBER}"
+          echo "Git Commit: ${GIT_COMMIT}"
+          echo "Image Tag: ${IMAGE_TAG}"
+          echo "Workspace: ${WORKSPACE}"
+        '''
+      }
     }
     success {
       echo "Image backend construite et poussée avec succès !"
