@@ -47,20 +47,23 @@ pipeline {
       }
     }
 
-    stage('Check Package Version (uuid)') {
+    stage('List Cache node_modules') {
       steps {
         container('node') {
           sh '''
-            cd "${WORK_DIR}"
-            echo "Version du package uuid dans package.json :"
-            grep '"uuid"' package.json || echo " Non trouvé dans package.json"
+            echo "Listing du contenu du cache npm partagé :"
+            find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 -type f | head -20
 
-            echo "Version du package uuid dans package-lock.json :"
-            grep '"uuid"' package-lock.json -A 2 || echo " Non trouvé dans package-lock.json"
+            echo "Nombre total de fichiers dans le cache npm :"
+            find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 -type f | wc -l
+
+            echo "Répertoires présents dans le cache npm :"
+            ls -l ${NODE_MODULES_PVC_PATH}/.npm/_cacache/
           '''
         }
       }
     }
+
 
     stage('Docker Login') {
       steps {
