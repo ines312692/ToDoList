@@ -67,17 +67,16 @@ pipeline {
       steps {
         container('node') {
           sh '''
-           echo "Extraction propre des noms et versions des paquets dans le cache npm partagé..."
-                     find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/content-v2/ -type f | while read file; do
-                       zcat "$file" 2>/dev/null | \
-                       awk '
-                         BEGIN {name=""; version=""}
-                         /"name":/ {match($0, /"name": *"([^"]+)"/, arr); if(arr[1]) name=arr[1]}
-                         /"version":/ {match($0, /"version": *"([^"]+)"/, arr); if(arr[1]) version=arr[1]}
-                         name!="" && version!="" {print name "@" version; name=""; version=""}
-                       '
-                     done | sort | uniq
+          echo "Extraction propre des noms et versions des paquets dans le cache npm partagé..."
 
+          find /mnt/node_modules_cache/.npm/_cacache/content-v2/ -type f | while read file; do
+            zcat "$file" 2>/dev/null | awk '
+              BEGIN {name=""; version=""}
+              /"name":/ {match($0, /"name": *"([^"]+)"/, arr); if(arr[1]) name=arr[1]}
+              /"version":/ {match($0, /"version": *"([^"]+)"/, arr); if(arr[1]) version=arr[1]}
+              name!="" && version!="" {print name "@" version; name=""; version=""}
+            '
+          done | sort | uniq
           '''
         }
       }
