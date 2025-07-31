@@ -13,7 +13,7 @@
   "description": "Todo Backend API",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2",
+    "express": "^4.20.0",
     "fs-extra": "^11.3.0",
     "uuid": "^11.1.0"
   },

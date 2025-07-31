@@ -7,19 +7,19 @@
 6 silly config load:file:C:\Users\inest\AppData\Roaming\npm\etc\npmrc
 7 verbose title npm outdated nodemon cors fs-extra express uuid
 8 verbose argv "outdated" "--json" "nodemon" "cors" "fs-extra" "express" "uuid"
-9 verbose logfile logs-max:10 dir:D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_29_13_673Z-
-10 verbose logfile D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_29_13_673Z-debug-0.log
+9 verbose logfile logs-max:10 dir:D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_54_58_517Z-
+10 verbose logfile D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_54_58_517Z-debug-0.log
 11 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
 12 silly logfile start cleaning logs, removing 2 files
 13 silly logfile done cleaning log files
-14 http fetch GET 200 https://registry.npmjs.org/uuid 146ms (cache revalidated)
-15 http fetch GET 200 https://registry.npmjs.org/nodemon 154ms (cache revalidated)
-16 http fetch GET 200 https://registry.npmjs.org/express 153ms (cache revalidated)
-17 http fetch GET 200 https://registry.npmjs.org/fs-extra 163ms (cache revalidated)
-18 http fetch GET 200 https://registry.npmjs.org/cors 175ms (cache revalidated)
+14 http fetch GET 200 https://registry.npmjs.org/express 197ms (cache revalidated)
+15 http fetch GET 200 https://registry.npmjs.org/cors 206ms (cache revalidated)
+16 http fetch GET 200 https://registry.npmjs.org/fs-extra 207ms (cache revalidated)
+17 http fetch GET 200 https://registry.npmjs.org/uuid 211ms (cache revalidated)
+18 http fetch GET 200 https://registry.npmjs.org/nodemon 224ms (cache revalidated)
 19 verbose cwd D:\telechargement\TODoList\To_Do_List_Backend
 20 verbose os Windows_NT 10.0.26100
 21 verbose node v22.17.0
 22 verbose npm  v10.8.1
-23 verbose exit 0
-24 info ok
+23 verbose exit 1
+24 verbose code 1

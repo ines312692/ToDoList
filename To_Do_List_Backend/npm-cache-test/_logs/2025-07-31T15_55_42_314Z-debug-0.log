@@ -7,8 +7,8 @@
 6 silly config load:file:C:\Users\inest\AppData\Roaming\npm\etc\npmrc
 7 verbose title npm config list
 8 verbose argv "config" "list" "--json"
-9 verbose logfile logs-max:10 dir:D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_29_11_262Z-
-10 verbose logfile D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_29_11_262Z-debug-0.log
+9 verbose logfile logs-max:10 dir:D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_55_42_314Z-
+10 verbose logfile D:\telechargement\TODoList\To_Do_List_Backend\npm-cache-test\_logs\2025-07-31T15_55_42_314Z-debug-0.log
 11 verbose cwd D:\telechargement\TODoList\To_Do_List_Backend
 12 verbose os Windows_NT 10.0.26100
 13 verbose node v22.17.0
