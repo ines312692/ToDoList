@@ -34,16 +34,30 @@ pipeline {
 
               npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
               echo "Installation des dépendances npm avec cache partagé PVC"
-               mkdir -p ${NODE_MODULES_PVC_PATH}/.npm
-               chmod -R 777 ${NODE_MODULES_PVC_PATH}/.npm
-               npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --loglevel verbose --loglevel verbose
+              mkdir -p ${NODE_MODULES_PVC_PATH}/.npm
+              chmod -R 777 ${NODE_MODULES_PVC_PATH}/.npm
+              npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --loglevel verbose
 
               echo " Vérification du contenu du cache npm partagé PVC:"
               du -sh ${NODE_MODULES_PVC_PATH}/.npm
               ls -la ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 | head -10
-
             '''
           }
+        }
+      }
+    }
+
+    stage('Check Package Version (uuid)') {
+      steps {
+        container('node') {
+          sh '''
+            cd "${WORK_DIR}"
+            echo "Version du package uuid dans package.json :"
+            grep '"uuid"' package.json || echo " Non trouvé dans package.json"
+
+            echo "Version du package uuid dans package-lock.json :"
+            grep '"uuid"' package-lock.json -A 2 || echo " Non trouvé dans package-lock.json"
+          '''
         }
       }
     }
