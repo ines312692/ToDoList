@@ -53,6 +53,18 @@ pipeline {
                 }
             }
         }
+        stage('Run Frontend Tests') {
+                    steps {
+                        container('node') {
+                            script {
+                                sh '''
+                                    cd "${WORK_DIR}"
+                                    echo "Exécution des tests frontend avec Karma"
+                                    npm test
+                                '''
+                            }
+                        }
+                    }
 
         stage('Build Frontend Image') {
             steps {
