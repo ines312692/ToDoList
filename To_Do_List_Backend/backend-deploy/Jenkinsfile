@@ -1,0 +1,34 @@
+pipeline {
+  agent {
+    kubernetes {
+      inheritFrom 'jenkins-backend'
+      defaultContainer 'helm'
+      namespace 'jenkins-developer'
+      serviceAccount 'jenkins-deployer'
+    }
+  }
+
+  environment {
+    CHART_PATH = './charts/backend-chart'
+    NAMESPACE = 'jenkins-developer'
+  }
+
+  stages {
+    stage('Deploy Backend') {
+      steps {
+
+          sh '''
+            echo "DEBUG: deploy backend"
+            helm upgrade --install todo-backend ./charts/backend-chart  -f ./charts/backend-chart/values.yaml --namespace jenkins-developer
+          '''
+
+      }
+    }
+
+   stage('Verify') {
+         steps {
+           echo " Déploiement Backend réussi dans le namespace ${NAMESPACE}"
+         }
+       }
+  }
+}

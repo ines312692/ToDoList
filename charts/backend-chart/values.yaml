@@ -1,0 +1,59 @@
+# charts/backend-chart/values.yaml
+
+# Application settings
+app:
+  name: todo-backend
+  image:
+    repository: inestmimi123/todo-backend
+    tag: latest
+
+  
+  port: 3000
+  targetPort: 3000
+
+serviceAccount:
+  create: false
+  name: jenkins-deployer
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+deployment:
+  replicaCount: 1
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+env:
+  NODE_ENV: production
+  PORT: 3000
+
+#--------------------------------------------
+persistence:
+  enabled: false
+  existingClaim: "todo-backend-data-pvc"
+  mountPath: "/app/data"
+#---------------------------------------------------------
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: todo-backend.local
+      paths:
+        - path: /api
+          pathType: Prefix
+  tls: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

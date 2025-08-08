@@ -1,0 +1,49 @@
+app:
+  name: todo-frontend
+  image:
+    repository: inestmimi123/todo-frontend
+    tag: latest
+  port: 80
+  targetPort: 80
+
+serviceAccount:
+  create: false
+  name: jenkins-deployer
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+
+deployment:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+persistence:
+  enabled: false
+  existingClaim: "todo-frontend-cache-pvc"
+  mountPath: "/var/cache/nginx"
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: todo-frontend.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

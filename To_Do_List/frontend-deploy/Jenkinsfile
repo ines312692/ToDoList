@@ -1,0 +1,30 @@
+pipeline {
+  agent {
+    kubernetes {
+      inheritFrom 'jenkins-frontend'
+      defaultContainer 'helm'
+      namespace 'jenkins-developer'
+      serviceAccount 'jenkins-deployer'
+    }
+  }
+
+  environment {
+    CHART_PATH = './charts/frontend-chart'
+    NAMESPACE = 'jenkins-developer'
+  }
+
+  stages {
+    stage('Deploy Frontend') {
+      steps {
+
+          sh '''
+           echo "DEBUG: deploy frontend"
+           helm upgrade --install todo-frontend ./charts/frontend-chart -f ./charts/frontend-chart/values.yaml --namespace jenkins-developer
+          '''
+
+      }
+    }
+
+
+  }
+}

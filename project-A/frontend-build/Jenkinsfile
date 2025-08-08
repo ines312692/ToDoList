@@ -1,0 +1,137 @@
+pipeline {
+    agent {
+        kubernetes {
+            inheritFrom 'jenkins-frontend-build'
+            defaultContainer 'docker'
+            namespace 'jenkins-developer'
+            serviceAccount 'jenkins-deployer'
+        }
+    }
+
+    environment {
+        DOCKERHUB_USERNAME = 'inestmimi123'
+        DOCKERHUB_IMAGE = 'todo-frontend'
+        IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+        DOCKER_BUILDKIT = '1'
+        NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
+        DOCKER_CACHE_PVC_PATH = '/var/lib/docker'
+        ARTIFACTS_PVC_PATH = '/artifacts'
+        WORK_DIR = "${WORKSPACE}/To_Do_List"
+    }
+
+    stages {
+
+
+        stage('Dependencies Installation') {
+            steps {
+                container('node') {
+                    script {
+                        sh '''
+                            cd "${WORK_DIR}"
+
+                            if [ ! -f "package.json" ]; then
+                                echo "package.json absent, arrêt"
+                                exit 1
+                            fi
+
+                            echo "Configurer cache npm dans /home/jenkins/.npm"
+                            npm config set cache /home/jenkins/.npm --global
+
+                            echo "Installation dépendances npm avec cache"
+                            npm install --prefer-offline --no-audit --progress=false
+
+
+
+                            cp package-lock.json ${NODE_MODULES_PVC_PATH}/package-lock.json.bak || true
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh 'echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin'
+                }
+            }
+        }
+
+        stage('Build Frontend Image') {
+            steps {
+                script {
+                    sh '''
+                        cd "${WORK_DIR}"
+
+                        DOCKER_BUILDKIT=1 docker build \
+                          --build-arg BUILDKIT_INLINE_CACHE=1 \
+                          --cache-from ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                          -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+                          -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest \
+                          .
+                    '''
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                sh '''
+                    docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
+                '''
+            }
+        }
+
+        stage('Docker Cleanup') {
+            steps {
+                sh '''
+                    docker system prune -f --filter "until=24h"
+
+                    docker images ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE} --format "table {{.Tag}}\t{{.CreatedAt}}" | \
+                    tail -n +2 | sort -k2 -r | tail -n +4 | awk '{print $1}' | \
+                    xargs -r -I {} docker rmi ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:{} || true
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                sh '''
+                    echo "Build: ${BUILD_NUMBER}"
+                    echo "Commit: ${GIT_COMMIT}"
+                    echo "Image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}"
+
+                    df -h ${NODE_MODULES_PVC_PATH} || true
+                    df -h ${ARTIFACTS_PVC_PATH} || true
+                    df -h ${DOCKER_CACHE_PVC_PATH} || true
+                '''
+            }
+        }
+        success {
+            echo "Build frontend réussi avec cache npm optimisé"
+            script {
+                sh '''
+                    echo "Artefacts disponibles dans: ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}"
+                    echo "Image Docker: ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}"
+                '''
+            }
+        }
+        failure {
+            echo "Échec du build frontend"
+            script {
+                sh '''
+                    echo "Workspace: ${WORK_DIR}"
+                    ls -la "${WORK_DIR}" || true
+                    echo "Cache npm dans /home/jenkins/.npm :"
+                    ls -la /home/jenkins/.npm || true
+                '''
+            }
+        }
+        cleanup {
+            sh 'docker logout || true'
+        }
+    }
+}

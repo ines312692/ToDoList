@@ -1,0 +1,136 @@
+# jenkins-build-pvcs-separated.yaml
+# PVC BACKEND - Cache Docker spécifique
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-backend-docker-cache-pvc
+  namespace: jenkins-developer
+  labels:
+    component: backend
+    type: docker-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+  storageClassName: standard
+---
+# PVC BACKEND - Workspace spécifique
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-backend-workspace-pvc
+  namespace: jenkins-developer
+  labels:
+    component: backend
+    type: workspace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+---
+# PVC BACKEND - Artefacts spécifiques
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-backend-artifacts-pvc
+  namespace: jenkins-developer
+  labels:
+    component: backend
+    type: artifacts
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+  storageClassName: standard
+---
+# PVC FRONTEND - Cache Docker spécifique
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-frontend-docker-cache-pvc
+  namespace: jenkins-developer
+  labels:
+    component: frontend
+    type: docker-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+  storageClassName: standard
+---
+# PVC FRONTEND - Workspace spécifique
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-frontend-workspace-pvc
+  namespace: jenkins-developer
+  labels:
+    component: frontend
+    type: workspace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+---
+# PVC FRONTEND - Cache node_modules
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-frontend-node-modules-pvc
+  namespace: jenkins-developer
+  labels:
+    component: frontend
+    type: node-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+  storageClassName: standard
+---
+# PVC FRONTEND - Artefacts spécifiques
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-frontend-artifacts-pvc
+  namespace: jenkins-developer
+  labels:
+    component: frontend
+    type: artifacts
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+  storageClassName: standard
+---
+# PVC OPTIONNEL - Cache commun pour outils partagés (Maven, npm global, etc.)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-shared-tools-cache-pvc
+  namespace: jenkins-developer
+  labels:
+    component: shared
+    type: tools-cache
+spec:
+  accessModes:
+    - ReadWriteMany  # Peut être partagé
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard

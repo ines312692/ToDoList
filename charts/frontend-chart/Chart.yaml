@@ -1,0 +1,4 @@
+apiVersion: v2
+name: frontend-chart
+description: Helm chart for Angular frontend
+version: 0.1.0

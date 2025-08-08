@@ -1,0 +1,59 @@
+0 verbose cli D:\Program Files\nodejs\node.exe C:\Users\inest\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.8.1
+2 info using node@v22.17.0
+3 silly config load:file:C:\Users\inest\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:D:\telechargement\TODoList\To_Do_List\.npmrc
+5 silly config load:file:C:\Users\inest\.npmrc
+6 silly config load:file:C:\Users\inest\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm outdated karma @angular/compiler-cli karma-chrome-launcher @angular/cli puppeteer karma-jasmine @angular/compiler @angular/platform-browser @angular/build zone.js @angular/router rxjs karma-jasmine-html-reporter @angular/common typescript @angular/forms karma-coverage @angular/core tslib @types/jasmine jasmine-core
+8 verbose argv "outdated" "--json" "karma" "@angular/compiler-cli" "karma-chrome-launcher" "@angular/cli" "puppeteer" "karma-jasmine" "@angular/compiler" "@angular/platform-browser" "@angular/build" "zone.js" "@angular/router" "rxjs" "karma-jasmine-html-reporter" "@angular/common" "typescript" "@angular/forms" "karma-coverage" "@angular/core" "tslib" "@types/jasmine" "jasmine-core"
+9 verbose logfile logs-max:10 dir:D:\telechargement\TODoList\To_Do_List\npm-cache-test\_logs\2025-07-31T09_44_14_049Z-
+10 verbose logfile D:\telechargement\TODoList\To_Do_List\npm-cache-test\_logs\2025-07-31T09_44_14_049Z-debug-0.log
+11 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+12 silly logfile done cleaning log files
+13 http fetch GET 200 https://registry.npmjs.org/npm 183ms
+14 http fetch GET 200 https://registry.npmjs.org/karma 97ms (cache miss)
+15 http fetch GET 200 https://registry.npmjs.org/karma-jasmine-html-reporter 101ms (cache miss)
+16 http fetch GET 200 https://registry.npmjs.org/karma-jasmine 139ms (cache miss)
+17 http fetch GET 200 https://registry.npmjs.org/rxjs 152ms (cache miss)
+18 http fetch GET 200 https://registry.npmjs.org/karma-chrome-launcher 187ms (cache miss)
+19 http fetch GET 200 https://registry.npmjs.org/zone.js 190ms (cache miss)
+20 http fetch GET 200 https://registry.npmjs.org/rxjs 259ms (cache miss)
+21 http fetch GET 200 https://registry.npmjs.org/@angular%2fcommon 310ms (cache miss)
+22 http fetch GET 200 https://registry.npmjs.org/@angular%2fcompiler-cli 338ms (cache miss)
+23 http fetch GET 200 https://registry.npmjs.org/tslib 357ms (cache miss)
+24 http fetch GET 200 https://registry.npmjs.org/tslib 387ms (cache miss)
+25 http fetch GET 200 https://registry.npmjs.org/tslib 409ms (cache miss)
+26 http fetch GET 200 https://registry.npmjs.org/@angular%2fcore 411ms (cache miss)
+27 http fetch GET 200 https://registry.npmjs.org/tslib 430ms (cache miss)
+28 http fetch GET 200 https://registry.npmjs.org/rxjs 442ms (cache miss)
+29 http fetch GET 200 https://registry.npmjs.org/tslib 449ms (cache miss)
+30 http fetch GET 200 https://registry.npmjs.org/tslib 486ms (cache miss)
+31 http fetch GET 200 https://registry.npmjs.org/@angular%2fcli 496ms (cache miss)
+32 http fetch GET 200 https://registry.npmjs.org/tslib 506ms (cache miss)
+33 http fetch GET 200 https://registry.npmjs.org/tslib 508ms (cache miss)
+34 http fetch GET 200 https://registry.npmjs.org/tslib 510ms (cache miss)
+35 http fetch GET 200 https://registry.npmjs.org/@angular%2frouter 516ms (cache miss)
+36 http fetch GET 200 https://registry.npmjs.org/@angular%2fbuild 526ms (cache miss)
+37 http fetch GET 200 https://registry.npmjs.org/rxjs 533ms (cache miss)
+38 http fetch GET 200 https://registry.npmjs.org/jasmine-core 538ms (cache miss)
+39 http fetch GET 200 https://registry.npmjs.org/jasmine-core 554ms (cache miss)
+40 http fetch GET 200 https://registry.npmjs.org/@types%2fjasmine 604ms (cache miss)
+41 http fetch GET 200 https://registry.npmjs.org/@angular%2fforms 615ms (cache miss)
+42 http fetch GET 200 https://registry.npmjs.org/tslib 623ms (cache miss)
+43 http fetch GET 200 https://registry.npmjs.org/typescript 631ms (cache miss)
+44 http fetch GET 200 https://registry.npmjs.org/puppeteer 698ms (cache miss)
+45 http fetch GET 200 https://registry.npmjs.org/karma-coverage 891ms (cache miss)
+46 http fetch GET 200 https://registry.npmjs.org/@angular%2fplatform-browser 907ms (cache miss)
+47 http fetch GET 200 https://registry.npmjs.org/@angular%2fcompiler 947ms (cache miss)
+48 verbose cwd D:\telechargement\TODoList\To_Do_List
+49 verbose os Windows_NT 10.0.26100
+50 verbose node v22.17.0
+51 verbose npm  v10.8.1
+52 notice
+52 notice New major version of npm available! 10.8.1 -> 11.5.2
+52 notice Changelog: https://github.com/npm/cli/releases/tag/v11.5.2
+52 notice To update run: npm install -g npm@11.5.2
+52 notice  { force: true, [Symbol(proc-log.meta)]: true }
+53 verbose exit 1
+54 verbose code 1

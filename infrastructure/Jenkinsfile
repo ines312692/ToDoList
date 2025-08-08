@@ -1,0 +1,26 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'kubectl-agent'
+      defaultContainer 'kubectl'
+      namespace 'jenkins-developer'
+      serviceAccount 'jenkins-deployer'
+    }
+  }
+
+  stages {
+    stage('Create Storage Infrastructure') {
+      steps {
+        script {
+          sh '''
+
+            kubectl apply -f infrastructure/persistent-volumes.yaml --namespace jenkins-developer
+
+
+            kubectl get pvc -n jenkins-developer
+          '''
+        }
+      }
+    }
+  }
+}

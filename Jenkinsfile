@@ -1,119 +1,62 @@
-def branchName = env.BRANCH_NAME
-
 pipeline {
-	agent any
-
-    environment {
-		FRONTEND_IMAGE = "todo-frontend"
-        BACKEND_IMAGE = "todo-backend"
-        COMPOSE_PROJECT = "todo-app"
+  agent {
+    kubernetes {
+      label 'jenkins-master'
+      defaultContainer 'kubectl'
+      namespace 'jenkins-developer'
+      serviceAccount 'jenkins-deployer'
     }
+  }
 
-    stages {
-		stage('Checkout') {
-			steps {
-				checkout scm
-            }
-        }
+  environment {
+    FRONTEND_BUILD_JOB = 'frontend-build'
+    BACKEND_BUILD_JOB = 'backend-build'
+    FRONTEND_DEPLOY_JOB = 'frontend-deploy'
+    BACKEND_DEPLOY_JOB = 'backend-deploy'
+  }
 
-        stage('Install Dependencies') {
-			agent {
-				docker {
-					image 'node:20-alpine'
-                    args '-u root'
-                }
-            }
-            when {
-				anyOf {
-					branch 'develop'
-                    branch 'main'
-                }
-            }
-            steps {
-				echo "Installing dependencies for ${branchName}..."
-                dir('To_Do_List') {
-					sh 'npm install'
-                }
-                dir('To_Do_List_Backend') {
-					sh 'npm install'
-                }
-            }
-        }
-
+  stages {
+    stage('Build Frontend and Backend') {
+      parallel {
         stage('Build Frontend') {
-			agent {
-				docker {
-					image 'node:20-alpine'
-                    args '-u root'
-                }
-            }
-            when {
-				anyOf {
-					branch 'develop'
-                    branch 'main'
-                }
-            }
-            steps {
-				dir('To_Do_List') {
-
-                    sh "docker build -t ${FRONTEND_IMAGE}:${branchName} ."
-                }
-            }
+          steps {
+            echo "Lancement du build frontend"
+            build job: "${FRONTEND_BUILD_JOB}", wait: true
+          }
         }
-
         stage('Build Backend') {
-			agent {
-				docker {
-					image 'docker:20-dind'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
-            when {
-				anyOf {
-					branch 'develop'
-                    branch 'main'
-                }
-            }
-            steps {
-				dir('To_Do_List_Backend') {
-					sh "docker build -t ${BACKEND_IMAGE}:${branchName} ."
-                }
-            }
+          steps {
+            echo "Lancement du build backend"
+            build job: "${BACKEND_BUILD_JOB}", wait: true
+          }
         }
-
-        stage('Tests') {
-			when {
-				branch 'develop'
-            }
-            steps {
-				echo "Running tests on ${branchName}..."
-                // Ajoute tes commandes de tests ici
-            }
-        }
-
-        stage('Deploy') {
-			when {
-				branch 'main'
-            }
-            agent {
-				docker {
-					image 'docker/compose:1.29.2'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
-            steps {
-				echo "Deploying to production..."
-                sh "docker-compose -p ${COMPOSE_PROJECT} up -d"
-            }
-        }
+      }
     }
 
-    post {
-		success {
-			echo "Pipeline succeeded on branch ${branchName}"
+    stage('Deploy Frontend and Backend') {
+      parallel {
+        stage('Deploy Frontend') {
+          steps {
+            echo "Lancement du déploiement frontend"
+            build job: "${FRONTEND_DEPLOY_JOB}", wait: true
+          }
         }
-        failure {
-			echo "Pipeline failed on branch ${branchName}"
+        stage('Deploy Backend') {
+          steps {
+            echo "Lancement du déploiement backend"
+            build job: "${BACKEND_DEPLOY_JOB}", wait: true
+          }
         }
+      }
     }
+  }
+
+  post {
+    success {
+      echo "Pipeline complet réussi : Build + Deploy"
+    }
+    failure {
+      echo "Échec dans le pipeline"
+    }
+  }
 }

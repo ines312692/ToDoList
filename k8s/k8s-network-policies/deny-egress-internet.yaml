@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-jenkins-and-internet
+  namespace: jenkins-developer
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.26/32
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 50000
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: UDP
+          port: 53
+
+    - to:
+        - ipBlock:
+            cidr: 140.82.112.0/20
+        - ipBlock:
+            cidr: 185.199.108.0/22
+        - ipBlock:
+            cidr: 192.30.252.0/22
+        - ipBlock:
+            cidr: 143.55.64.0/20
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 22

@@ -1,0 +1,263 @@
+pipeline {
+  agent {
+    kubernetes {
+      inheritFrom 'jenkins-backend-build'
+      defaultContainer 'docker'
+      namespace 'jenkins-developer'
+      serviceAccount 'jenkins-deployer'
+    }
+  }
+
+  environment {
+    DOCKERHUB_USERNAME = 'inestmimi123'
+    DOCKERHUB_IMAGE = 'todo-backend'
+    IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+    DOCKER_BUILDKIT = '1'
+    NODE_MODULES_PVC_PATH = '/mnt/node_modules_cache'
+    ARTIFACTS_PVC_PATH = '/mnt/artifacts'
+    WORK_DIR = "${WORKSPACE}/To_Do_List_Backend"
+  }
+
+  stages {
+
+    stage('Dependencies Installation') {
+      steps {
+        container('node') {
+          script {
+            sh '''
+              cd "${WORK_DIR}"
+
+              if [ ! -f "package.json" ]; then
+                  echo "package.json manquant. Échec."
+                  exit 1
+              fi
+
+              npm config set cache ${NODE_MODULES_PVC_PATH}/.npm --global
+              echo "Installation des dépendances npm avec cache partagé PVC"
+              mkdir -p ${NODE_MODULES_PVC_PATH}/.npm
+              chmod -R 777 ${NODE_MODULES_PVC_PATH}/.npm
+              npm ci --prefer-offline --cache=${NODE_MODULES_PVC_PATH}/.npm --loglevel verbose
+
+              echo "Vérification du contenu du cache npm partagé PVC:"
+              du -sh ${NODE_MODULES_PVC_PATH}/.npm
+              ls -la ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 | head -10
+            '''
+          }
+        }
+      }
+    }
+
+    stage('List Cache Statistics') {
+      steps {
+        container('node') {
+          sh '''
+            echo "=== STATISTIQUES DU CACHE NPM ==="
+            echo "Taille totale du cache:"
+            du -sh ${NODE_MODULES_PVC_PATH}/.npm
+
+            echo "Nombre de fichiers dans index-v5:"
+            find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/index-v5 -type f | wc -l
+
+            echo "Nombre de fichiers dans content-v2:"
+            find ${NODE_MODULES_PVC_PATH}/.npm/_cacache/content-v2 -type f | wc -l
+
+            echo "Répertoires présents dans le cache:"
+            ls -la ${NODE_MODULES_PVC_PATH}/.npm/_cacache/
+          '''
+        }
+      }
+    }
+
+    stage('List Installed Packages') {
+      steps {
+        container('node') {
+          sh '''
+            cd "${WORK_DIR}"
+            echo "=== PACKAGES INSTALLÉS DANS LE PROJET ==="
+
+            # Afficher les dépendances depuis package.json
+            echo "Dépendances de production depuis package.json:"
+            if command -v jq > /dev/null 2>&1; then
+              jq -r '.dependencies // {} | to_entries[] | "\\(.key): \\(.value)"' package.json
+            else
+              echo "jq non disponible, affichage brut:"
+              grep -A 50 '"dependencies"' package.json | grep -v '^--$' | head -20
+            fi
+
+            echo ""
+            echo "Dépendances de développement depuis package.json:"
+            if command -v jq > /dev/null 2>&1; then
+              jq -r '.devDependencies // {} | to_entries[] | "\\(.key): \\(.value)"' package.json
+            else
+              echo "jq non disponible, affichage brut:"
+              grep -A 50 '"devDependencies"' package.json | grep -v '^--$' | head -20
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('List Actually Installed Versions') {
+      steps {
+        container('node') {
+          sh '''
+            cd "${WORK_DIR}"
+            echo "=== VERSIONS RÉELLEMENT INSTALLÉES ==="
+
+            # Utiliser npm list pour voir les packages installés
+            echo "Packages installés (niveau racine):"
+            npm list --depth=0 2>/dev/null || echo "Erreur avec npm list, tentative alternative..."
+
+            echo ""
+            echo "Packages avec leurs versions exactes:"
+            if [ -f "package-lock.json" ]; then
+              echo "Extraction depuis package-lock.json:"
+              if command -v jq > /dev/null 2>&1; then
+                jq -r '.packages | to_entries[] | select(.key != "") | "\\(.key): \\(.value.version // "N/A")"' package-lock.json | head -20
+              else
+                echo "package-lock.json présent mais jq non disponible"
+                head -50 package-lock.json
+              fi
+            else
+              echo "package-lock.json non trouvé"
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Extract Cache Package Info') {
+      steps {
+        container('node') {
+          sh '''
+            echo "=== EXTRACTION DES INFOS DU CACHE NPM ==="
+
+            # Méthode alternative pour extraire les infos du cache
+            echo "Tentative d'extraction des packages depuis le cache:"
+
+            # Utiliser npm cache ls si disponible
+            if npm cache ls > /dev/null 2>&1; then
+              echo "Packages dans le cache npm:"
+              npm cache ls | head -20
+            else
+              echo "npm cache ls non disponible"
+            fi
+
+            # Alternative: chercher les fichiers package.json dans node_modules si ils existent
+            if [ -d "${WORK_DIR}/node_modules" ]; then
+              echo "Packages installés dans node_modules:"
+              find "${WORK_DIR}/node_modules" -name "package.json" -maxdepth 2 | head -10 | while read pkg; do
+                if command -v jq > /dev/null 2>&1; then
+                  name=$(jq -r '.name // "unknown"' "$pkg")
+                  version=$(jq -r '.version // "unknown"' "$pkg")
+                  echo "$name@$version"
+                else
+                  echo "Package trouvé: $pkg"
+                fi
+              done
+            else
+              echo "Répertoire node_modules non trouvé"
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Docker Login') {
+      steps {
+        container('docker') {
+          withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+            sh 'echo "$PASSWORD" | docker login -u "$USERNAME" --password-stdin'
+          }
+        }
+      }
+    }
+    stage('Run Backend Tests') {
+        steps {
+            container('node') {
+                dir('To_Do_List_Backend') {
+
+                    sh 'npm test'
+                }
+            }
+        }
+    }
+
+    stage('Build Backend Image') {
+      steps {
+        container('docker') {
+          dir('To_Do_List_Backend') {
+            sh '''
+              DOCKER_BUILDKIT=1 docker build \
+                --build-arg BUILDKIT_INLINE_CACHE=1 \
+                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG} \
+                -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest .
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        container('docker') {
+          sh '''
+            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:${IMAGE_TAG}
+            docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_IMAGE}:latest
+          '''
+        }
+      }
+    }
+
+    stage('Artifacts Persistence') {
+      steps {
+        container('node') {
+          sh '''
+            if [ -d "${WORK_DIR}/dist" ]; then
+              mkdir -p ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}
+              cp -r ${WORK_DIR}/dist/* ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/
+              echo "Artifacts sauvegardés dans ${ARTIFACTS_PVC_PATH}/build-${BUILD_NUMBER}/"
+            else
+              echo "Aucun répertoire dist trouvé à sauvegarder"
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Cleanup Docker') {
+      steps {
+        container('docker') {
+          sh '''
+            docker system prune -f --filter "until=24h" || true
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "=== Pipeline terminé ==="
+      // Afficher un résumé final
+      container('node') {
+        sh '''
+          echo "=== RÉSUMÉ FINAL ==="
+          echo "Build Number: ${BUILD_NUMBER}"
+          echo "Git Commit: ${GIT_COMMIT}"
+          echo "Image Tag: ${IMAGE_TAG}"
+          echo "Workspace: ${WORKSPACE}"
+        '''
+      }
+    }
+    success {
+      echo "Image backend construite et poussée avec succès !"
+    }
+    failure {
+      echo "Échec du pipeline backend."
+    }
+    cleanup {
+      sh 'docker logout || true'
+    }
+  }
+}
