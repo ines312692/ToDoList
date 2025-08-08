@@ -183,7 +183,6 @@ pipeline {
         }
     }
 
-
     stage('Build Backend Image') {
       steps {
         container('docker') {
