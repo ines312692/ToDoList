@@ -172,6 +172,17 @@ pipeline {
         }
       }
     }
+    stage('Run Backend Tests') {
+        steps {
+            container('node') {
+                dir('To_Do_List_Backend') {
+
+                    sh 'npm test'
+                }
+            }
+        }
+    }
+
 
     stage('Build Backend Image') {
       steps {
