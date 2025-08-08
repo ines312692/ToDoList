@@ -9,7 +9,7 @@ const DATA_PATH = path.join(__dirname, '..', 'data', 'db.json');
 app.use(cors());
 app.use(express.json());
 
-// DB logic
+
 const initDB = async () => {
     await fs.ensureFile(DATA_PATH);
     const data = await fs.readJson(DATA_PATH).catch(() => ({

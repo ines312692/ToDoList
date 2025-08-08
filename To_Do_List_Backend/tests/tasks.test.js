@@ -5,11 +5,11 @@ let server;
 
 beforeAll(async () => {
     await initDB();
-    server = app.listen(0); // Use port 0 to let the OS assign a random port
+    server = app.listen(0);
 });
 
 afterAll(async () => {
-    await new Promise(resolve => server.close(resolve)); // Properly close the server
+    await new Promise(resolve => server.close(resolve));
 });
 
 describe('Tasks API', () => {
